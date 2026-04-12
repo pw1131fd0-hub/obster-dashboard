@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECTS_PATH=/home/crawd_user/project
+      - LOGS_PATH=/home/crawd_user/.openclaw/workspace/logs/executions
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TIMEOUT_MINUTES=30
+    volumes:
+      - /home/crawd_user/project:/home/crawd_user/project:ro
+      - /home/crawd_user/.openclaw/workspace/logs:/home/crawd_user/.openclaw/workspace/logs:ro
+    restart: unless-stopped
+    network_mode: host
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    network_mode: host
