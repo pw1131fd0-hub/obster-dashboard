@@ -1,18 +1,20 @@
 {
-  "stage": "prd",
+  "stage": "sa_sd",
   "iteration": 1,
   "quality_score": 85,
   "quality_details": {
-    "產品願景": 100,
-    "User_Story": 100,
-    "P0_P1_P2_功能分級": 100,
-    "非功能需求": 100,
-    "技術選型": 100,
-    "UI_UX_色彩計劃": 100,
-    "成功指標": 100
+    "SA_完整性": 100,
+    "SA_架構圖": 100,
+    "SA_元件職責": 100,
+    "SA_資料流": 100,
+    "SA_部署方式": 100,
+    "SD_API_端點": 100,
+    "SD_錯誤處理": 100,
+    "SD_DB_Schema": 100,
+    "SD_模組結構": 100
   },
   "completeness": 100,
-  "summary": "完成 PRD.md 撰寫，包含 7 項必要內容：產品願景、4 個 User Story、P0/P1/P2 功能分級（非僅標題）、非功能需求（效能/可用性/擴展性/安全性各一項）、技術選型（React+FastAPI+SQLite+Docker）、UI/UX 色彩計劃（具體色碼）、3 個量化 KPI。所有項目內容均超過 50 字。",
-  "next_action": "PRD 已達 85 分門檻，可進入 sa_sd 階段，產出 SA.md 和 SD.md",
-  "updated_at": "2026-04-12T18:10:00Z"
+  "summary": "完成 SA.md 和 SD.md 撰寫。SA.md 包含系統架構總覽（含 ASCII 架構圖）、元件職責、資料流說明、部署方式（Docker Compose）、模組介面。SD.md 包含 5 個 API 端點規格（projects/cronjobs/agents/logs/health）、錯誤處理策略、SQLite Schema、完整模組結構。兩份文件共計超過 500 行內容。",
+  "next_action": "sa_sd 已達 85 分門檻，可進入 dev 階段，開始實作 FastAPI backend 和 React frontend",
+  "updated_at": "2026-04-12T18:20:00Z"
 }
