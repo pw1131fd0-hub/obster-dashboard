@@ -1,12 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { ProjectStatusPanel } from '../components/ProjectStatusPanel';
 import { AgentHealthPanel } from '../components/AgentHealthPanel';
 import { CronJobPanel } from '../components/CronJobPanel';
 import { ExecutionLogPanel } from '../components/ExecutionLogPanel';
 import { DashboardProvider } from '../context/DashboardContext';
 
-// Test setup helper
+// Mock fetch globally
+global.fetch = vi.fn();
+
 const renderWithProvider = (ui: React.ReactElement) => {
   return render(
     <DashboardProvider>
@@ -35,7 +37,7 @@ describe('AgentHealthPanel', () => {
 
   it('shows 30 minute threshold note', () => {
     renderWithProvider(<AgentHealthPanel />);
-    expect(screen.getByText('30 分鐘未回應 = 異常')).toBeInTheDocument();
+    expect(screen.getByText(/\(30 分鐘未回應 = 異常\)/)).toBeInTheDocument();
   });
 });
 
@@ -54,6 +56,6 @@ describe('ExecutionLogPanel', () => {
 
   it('shows limit note', () => {
     renderWithProvider(<ExecutionLogPanel />);
-    expect(screen.getByText('最近 20 筆')).toBeInTheDocument();
+    expect(screen.getByText(/\(最近 20 筆\)/)).toBeInTheDocument();
   });
 });
