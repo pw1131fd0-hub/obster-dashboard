@@ -38,3 +38,5 @@ coverage/
 
 # Temp
 .gemini_instructions.tmpbackend/.coverage
+.gemini_instructions.tmp
+backend/.coverage
