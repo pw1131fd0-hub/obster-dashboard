@@ -1,10 +1,13 @@
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ProjectStatusPanel } from '../components/ProjectStatusPanel';
+import { AgentHealthPanel } from '../components/AgentHealthPanel';
+import { CronJobPanel } from '../components/CronJobPanel';
+import { ExecutionLogPanel } from '../components/ExecutionLogPanel';
 import { DashboardProvider } from '../context/DashboardContext';
-import { DashboardState } from '../types';
 
 // Test setup helper
-const renderWithProvider = (ui: React.ReactElement, initialState?: DashboardState) => {
+const renderWithProvider = (ui: React.ReactElement) => {
   return render(
     <DashboardProvider>
       {ui}
