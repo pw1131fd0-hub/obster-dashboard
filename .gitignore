@@ -37,4 +37,4 @@ coverage/
 .ralph/
 
 # Temp
-.gemini_instructions.tmp
+.gemini_instructions.tmpbackend/.coverage

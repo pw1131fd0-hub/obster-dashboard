@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { ProjectStatusPanel } from '../components/ProjectStatusPanel';
 import { AgentHealthPanel } from '../components/AgentHealthPanel';
 import { CronJobPanel } from '../components/CronJobPanel';
@@ -7,7 +7,8 @@ import { ExecutionLogPanel } from '../components/ExecutionLogPanel';
 import { DashboardProvider } from '../context/DashboardContext';
 
 // Mock fetch globally
-global.fetch = vi.fn();
+const mockFetch = vi.fn();
+globalThis.fetch = mockFetch;
 
 const renderWithProvider = (ui: React.ReactElement) => {
   return render(

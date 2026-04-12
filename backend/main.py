@@ -4,7 +4,7 @@ OpenClaw Dashboard - FastAPI Backend
 import os
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
 from collections import defaultdict
@@ -105,7 +105,7 @@ async def get_projects():
 
     if not projects_base.exists():
         logger.warning(f"Projects path not found: {PROJECTS_PATH}")
-        return ProjectResponse(projects=[], timestamp=datetime.utcnow().isoformat())
+        return ProjectResponse(projects=[], timestamp=datetime.now(timezone.utc).isoformat())
 
     for project_dir in projects_base.iterdir():
         if not project_dir.is_dir():
@@ -134,7 +134,7 @@ async def get_projects():
 
     return ProjectResponse(
         projects=projects,
-        timestamp=datetime.utcnow().isoformat()
+        timestamp=datetime.now(timezone.utc).isoformat()
     )
 
 
@@ -217,7 +217,7 @@ async def get_cronjobs(limit: int = 10):
 
     return CronJobResponse(
         cronjobs=cronjobs,
-        timestamp=datetime.utcnow().isoformat()
+        timestamp=datetime.now(timezone.utc).isoformat()
     )
 
 
@@ -234,7 +234,7 @@ async def get_agents(timeout_minutes: int = 30):
                 last_response=None,
                 minutes_ago=None
             ))
-        return AgentResponse(agents=agents, timestamp=datetime.utcnow().isoformat())
+        return AgentResponse(agents=agents, timestamp=datetime.now(timezone.utc).isoformat())
 
     try:
         import requests
@@ -252,7 +252,7 @@ async def get_agents(timeout_minutes: int = 30):
                     last_response=None,
                     minutes_ago=None
                 ))
-            return AgentResponse(agents=agents, timestamp=datetime.utcnow().isoformat())
+            return AgentResponse(agents=agents, timestamp=datetime.now(timezone.utc).isoformat())
 
         data = response.json()
         updates = data.get("result", [])
@@ -311,7 +311,7 @@ async def get_agents(timeout_minutes: int = 30):
                 minutes_ago=None
             ))
 
-    return AgentResponse(agents=agents, timestamp=datetime.utcnow().isoformat())
+    return AgentResponse(agents=agents, timestamp=datetime.now(timezone.utc).isoformat())
 
 
 @app.get("/api/logs", response_model=LogResponse)
@@ -321,7 +321,7 @@ async def get_logs(limit: int = 20):
 
     if not logs_dir.exists():
         logger.warning(f"Logs path not found: {LOGS_PATH}")
-        return LogResponse(logs=[], count=0, timestamp=datetime.utcnow().isoformat())
+        return LogResponse(logs=[], count=0, timestamp=datetime.now(timezone.utc).isoformat())
 
     log_entries = []
 
@@ -352,7 +352,7 @@ async def get_logs(limit: int = 20):
     return LogResponse(
         logs=log_entries,
         count=len(log_entries),
-        timestamp=datetime.utcnow().isoformat()
+        timestamp=datetime.now(timezone.utc).isoformat()
     )
 
 
