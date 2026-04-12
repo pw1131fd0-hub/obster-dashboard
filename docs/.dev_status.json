@@ -1,14 +1,9 @@
 {
-  "stage": "security",
+  "stage": "plan_pending",
   "iteration": 1,
-  "quality_score": 95,
-  "quality_details": {
-    "OWASP_Top_10_檢查": 50,
-    "依賴漏洞掃描": 25,
-    "敏感資料處理審查": 20
-  },
-  "completeness": 100,
-  "summary": "security 階段完成。OWASP Top 10 檢查：已確認無注入風險（所有輸入為本地檔案路徑）、無法預期錯誤（CORS 全開但本地網路）、已驗證所有 API 端點有適當錯誤處理。依賴漏洞掃描：Python packages 為內網使用無風險，npm audit 顯示 4 個 moderate vulnerabilities（屬於 devDependencies，不影響 production）。敏感資料處理：確認無敏感資料暴露，日誌僅顯示檔案名稱。Security score: 95/100 (threshold: 95)。",
-  "next_action": "security 已達 95 分門檻，需老闆在 Notion 手動確認後改為 Done",
-  "updated_at": "2026-04-13T02:25:00Z"
+  "quality_score": 0,
+  "completeness": 0,
+  "summary": "PLAN.md 已寫入，請在 Notion 打勾「確認」",
+  "next_action": "老闆在 Notion 打勾「確認」後 Worker 就會繼續執行",
+  "updated_at": "2026-04-12T18:09:53.653Z"
 }
