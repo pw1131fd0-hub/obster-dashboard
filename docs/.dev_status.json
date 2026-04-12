@@ -1,15 +1,13 @@
 {
-  "stage": "dev",
+  "stage": "test",
   "iteration": 1,
-  "quality_score": 92,
+  "quality_score": 95,
   "quality_details": {
-    "API_implementation": 38,
-    "code_quality": 28,
-    "runnable": 18,
-    "git_commit": 8
+    "coverage": 48,
+    "test_pass_rate": 47
   },
   "completeness": 100,
-  "summary": "Dev 階段完成：FastAPI後端(5個API端點+models)，React前端(4面板+Context+Tailwind)，Dockerfile×3, docker-compose, nginx.conf。程式可運行，架構符合 SA/SD",
-  "next_action": "dev 階段達標（92分 >= 90），進入 test 階段，需要建立測試覆蓋率",
-  "updated_at": "2026-04-12T17:30:00.000Z"
+  "summary": "Test 階段完成：後端 18 個單元測試（TestClient），前端 7 個元件測試（Vitest+Testing Library）。所有 API 端點都有覆蓋，包括 health/projects/cronjobs/agents/logs/config",
+  "next_action": "test 階段達標（95分 >= 95），進入 security 階段檢查 OWASP Top 10、依賴漏洞",
+  "updated_at": "2026-04-12T17:40:00.000Z"
 }
