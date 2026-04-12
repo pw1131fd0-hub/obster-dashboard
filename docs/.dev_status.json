@@ -1,19 +1,9 @@
 {
-  "stage": "prd",
+  "stage": "plan_pending",
   "iteration": 1,
-  "quality_score": 85,
-  "quality_details": {
-    "產品願景": 85,
-    "user_stories": 85,
-    "功能分級_P0_P1_P2": 85,
-    "非功能需求": 85,
-    "技術選型": 85,
-    "UI_UX_色彩計劃": 85,
-    "成功指標": 85
-  },
-  "completeness": 100,
-  "summary": "PRD 文件已完成，所有 7 項要求均已滿足：產品願景、4個User Story、5P0+4P1+3P2功能分級、4類非功能需求、完整技術選型、UI色彩表（slate-900暗色主題）、3項KPI。Docker build 驗證通過。",
-  "next_action": "由於 PRD 已達 85 分標準，應進入 sa_sd 階段，產出 SA.md (架構設計) 和 SD.md (技術規格)",
-  "blocking_errors": [],
-  "updated_at": "2026-04-12T17:52:00Z"
+  "quality_score": 0,
+  "completeness": 0,
+  "summary": "PLAN.md 已寫入，請在 Notion 打勾「確認」",
+  "next_action": "老闆在 Notion 打勾「確認」後 Worker 就會繼續執行",
+  "updated_at": "2026-04-12T17:52:48.936Z"
 }
