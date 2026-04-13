@@ -11,6 +11,7 @@ services:
       - /run/systemd:/run/systemd:ro
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - REFRESH_INTERVAL=30000
     restart: unless-stopped
 
   backend:

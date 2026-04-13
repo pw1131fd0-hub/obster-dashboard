@@ -74,7 +74,7 @@ class AgentInfo(BaseModel):
     name: str
     status: str
     last_response: Optional[str]
-    minutes_ago: Optional[int]
+    minutes_ago: Optional[float]
 
 class AgentResponse(BaseModel):
     agents: List[AgentInfo]
