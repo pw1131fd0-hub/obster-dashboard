@@ -1,6 +1,6 @@
 # ─── Networks ─────────────────────────────────────────────────────────────────
 networks:
-  obster-net:
+  obster-network:
     driver: bridge
 
 # ─── Services ─────────────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - obster-net
+      - obster-network
 
   # ── backend: FastAPI / uvicorn ────────────────────────────────────────────
   backend:
@@ -72,4 +72,4 @@ services:
       retries: 3
     restart: unless-stopped
     networks:
-      - obster-net
+      - obster-network
