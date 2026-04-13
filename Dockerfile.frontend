@@ -1,17 +1,6 @@
-# Frontend-only build container
-# Use this to build frontend without deploying
-FROM node:20-alpine AS frontend-builder
-
+FROM node:20-alpine
 WORKDIR /app/frontend
-
 COPY frontend/package*.json ./
-
 RUN npm install
-
-COPY frontend/ .
-
+COPY frontend/ ./
 RUN npm run build
-
-# Export the built artifacts
-FROM scratch AS export-stage
-COPY --from=frontend-builder /app/frontend/dist /

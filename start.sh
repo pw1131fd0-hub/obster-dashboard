@@ -1,9 +1,17 @@
 #!/bin/bash
 set -e
 
-# Install backend dependencies
-pip install -q -r /home/crawd_user/project/obster-dashboard/backend/requirements.txt
+echo "Starting Obster Dashboard..."
 
-# Start FastAPI backend
-cd /home/crawd_user/project/obster-dashboard/backend
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+# Build and start services
+docker-compose build
+docker-compose up -d
+
+# Wait for services
+sleep 3
+
+# Verify health
+echo "Checking API health..."
+curl -s http://localhost/api/health || echo "API not ready yet"
+
+echo "Dashboard started at http://localhost"
