@@ -1,34 +1,75 @@
-version: '3.8'
+# ─── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  obster-net:
+    driver: bridge
+
+# ─── Services ─────────────────────────────────────────────────────────────────
 services:
+
+  # ── nginx: static SPA + reverse proxy ────────────────────────────────────
   nginx:
     build:
       context: .
       dockerfile: Dockerfile
+    image: obster-dashboard:latest
+    container_name: obster-dashboard-nginx
     ports:
       - "80:80"
     volumes:
+      # dbus/systemd sockets are needed so nginx can resolve the backend
+      # container hostname; actual systemd calls are made by the backend.
       - /var/run/dbus:/var/run/dbus:ro
       - /run/systemd:/run/systemd:ro
     environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - REFRESH_INTERVAL=30000
+      # TELEGRAM_BOT_TOKEN is optional; defaults to empty string so agents
+      # degrade gracefully to "unknown" status rather than crashing.
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - REFRESH_INTERVAL=${REFRESH_INTERVAL:-30000}
+    depends_on:
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - obster-net
 
+  # ── backend: FastAPI / uvicorn ────────────────────────────────────────────
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      # Context scoped to ./backend so Dockerfile can use bare filenames
+      # (COPY requirements.txt, COPY . .) without knowing the repo layout.
+      context: ./backend
+      dockerfile: Dockerfile
+    image: obster-backend:latest
+    container_name: obster-dashboard-backend
     ports:
       - "8000:8000"
     volumes:
+      # Host paths mounted read-only; backend reads but never writes.
       - /home/crawd_user/project:/home/crawd_user/project:ro
       - /home/crawd_user/.openclaw/workspace/logs:/home/crawd_user/.openclaw/workspace/logs:ro
+      # systemd socket access for CronJob panel (journalctl / systemctl)
       - /var/run/dbus:/var/run/dbus:ro
       - /run/systemd:/run/systemd:ro
     environment:
-      - PROJECTS_PATH=/home/crawd_user/project
-      - LOGS_PATH=/home/crawd_user/.openclaw/workspace/logs/executions
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TIMEOUT_MINUTES=30
-    restart: unless-stopped
+      - PROJECTS_PATH=${PROJECTS_PATH:-/home/crawd_user/project}
+      - LOGS_PATH=${LOGS_PATH:-/home/crawd_user/.openclaw/workspace/logs/executions}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TIMEOUT_MINUTES=${TIMEOUT_MINUTES:-30}
+      - REFRESH_INTERVAL=${REFRESH_INTERVAL:-30000}
+    # privileged is required so systemctl/journalctl can talk to the host
+    # systemd over the mounted dbus socket.
     privileged: true
+    healthcheck:
+      # Uses python built-in urllib — no extra packages required.
+      test:
+        - "CMD"
+        - "python3"
+        - "-c"
+        - "import urllib.request, sys; urllib.request.urlopen('http://localhost:8000/api/health'); sys.exit(0)"
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - obster-net

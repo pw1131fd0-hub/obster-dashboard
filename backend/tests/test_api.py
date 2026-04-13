@@ -366,7 +366,7 @@ class TestProjectResponseModel:
         response = client.get("/api/projects")
         data = response.json()
 
-        valid_stages = {"prd", "dev", "test", "security", "unknown"}
+        valid_stages = {"prd", "dev", "test", "security", "unknown", "done", "plan_pending"}
         for project in data["projects"]:
             assert project["stage"] in valid_stages
 

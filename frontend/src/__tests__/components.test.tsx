@@ -1,95 +1,306 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { ProjectStatusPanel } from '../components/ProjectStatusPanel';
 import { AgentHealthPanel } from '../components/AgentHealthPanel';
 import { CronJobPanel } from '../components/CronJobPanel';
 import { ExecutionLogPanel } from '../components/ExecutionLogPanel';
-import { DashboardProvider } from '../context/DashboardContext';
+import { setupFetchMock, renderWithProvider } from './testUtils';
+import type { Project, Agent, CronJob, LogEntry } from '../types';
 
-// Mock fetch globally
-const mockFetch = vi.fn();
-globalThis.fetch = mockFetch;
-
-const renderWithProvider = (ui: React.ReactElement) => {
-  return render(
-    <DashboardProvider>
-      {ui}
-    </DashboardProvider>
-  );
-};
+// ---------------------------------------------------------------------------
+// ProjectStatusPanel
+// ---------------------------------------------------------------------------
 
 describe('ProjectStatusPanel', () => {
-  beforeEach(() => mockFetch.mockClear());
+  beforeEach(() => { setupFetchMock(); });
 
-  it('renders without crashing', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ projects: [] }) });
+  it('renders the panel heading', () => {
     renderWithProvider(<ProjectStatusPanel />);
-    expect(screen.getByText('開發任務狀態')).toBeInTheDocument();
+    expect(screen.getByText('Project Status')).toBeInTheDocument();
   });
 
-  it('shows "No projects found" when state is empty', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ projects: [] }) });
+  it('shows empty-state message when there are no projects', () => {
     renderWithProvider(<ProjectStatusPanel />);
     expect(screen.getByText('No projects found')).toBeInTheDocument();
   });
+
+  it('renders a project card with name and stage badge', async () => {
+    const project: Project = {
+      name: 'obster-dashboard',
+      path: '/home/user/project/obster-dashboard',
+      stage: 'dev',
+      iteration: 3,
+      quality_score: 92,
+      blocking_errors: [],
+      updated_at: '2026-04-13T08:30:00.000Z',
+    };
+
+    const mockFetch = setupFetchMock();
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/projects') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ projects: [project] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    renderWithProvider(<ProjectStatusPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('obster-dashboard')).toBeInTheDocument();
+    });
+    expect(screen.getByText('DEV')).toBeInTheDocument();
+  });
+
+  it('shows quality warning when score is below 85', async () => {
+    const project: Project = {
+      name: 'low-quality-project',
+      path: '/home/user/project/low-quality-project',
+      stage: 'test',
+      iteration: 1,
+      quality_score: 70,
+      blocking_errors: [],
+      updated_at: '2026-04-13T08:30:00.000Z',
+    };
+
+    const mockFetch = setupFetchMock();
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/projects') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ projects: [project] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    renderWithProvider(<ProjectStatusPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Quality score below threshold (85)')).toBeInTheDocument();
+    });
+  });
+
+  it('displays blocking errors when present', async () => {
+    const project: Project = {
+      name: 'broken-project',
+      path: '/home/user/project/broken-project',
+      stage: 'prd',
+      iteration: 5,
+      quality_score: 88,
+      blocking_errors: ['TypeScript compile error', 'Missing env variable'],
+      updated_at: '2026-04-13T08:30:00.000Z',
+    };
+
+    const mockFetch = setupFetchMock();
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/projects') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ projects: [project] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    renderWithProvider(<ProjectStatusPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('TypeScript compile error')).toBeInTheDocument();
+      expect(screen.getByText('Missing env variable')).toBeInTheDocument();
+    });
+  });
 });
 
+// ---------------------------------------------------------------------------
+// AgentHealthPanel
+// ---------------------------------------------------------------------------
+
 describe('AgentHealthPanel', () => {
-  beforeEach(() => mockFetch.mockClear());
+  beforeEach(() => { setupFetchMock(); });
 
-  it('renders without crashing', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ agents: [] }) });
+  it('renders the panel heading', () => {
     renderWithProvider(<AgentHealthPanel />);
-    expect(screen.getByText('Agent 健康度')).toBeInTheDocument();
+    expect(screen.getByText('Agent Health')).toBeInTheDocument();
   });
 
-  it('shows 30 minute threshold note', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ agents: [] }) });
+  it('shows the 30-minute threshold note', () => {
     renderWithProvider(<AgentHealthPanel />);
-    expect(screen.getByText(/\(30 分鐘未回應 = 異常\)/)).toBeInTheDocument();
+    expect(screen.getByText(/30 min without response/)).toBeInTheDocument();
   });
 
-  it('shows "No agents configured" when empty', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ agents: [] }) });
+  it('shows empty-state message when no agents are configured', () => {
     renderWithProvider(<AgentHealthPanel />);
     expect(screen.getByText('No agents configured')).toBeInTheDocument();
   });
-});
 
-describe('CronJobPanel', () => {
-  beforeEach(() => mockFetch.mockClear());
+  it('renders a healthy agent card with correct status', async () => {
+    const agent: Agent = {
+      name: 'Argus',
+      status: 'healthy',
+      last_response: '2026-04-13T08:25:00.000Z',
+      minutes_ago: 5,
+    };
 
-  it('renders without crashing', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ cronjobs: [] }) });
-    renderWithProvider(<CronJobPanel />);
-    expect(screen.getByText('Cron Job 監控')).toBeInTheDocument();
+    const mockFetch = setupFetchMock();
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/agents') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ agents: [agent] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    renderWithProvider(<AgentHealthPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Argus')).toBeInTheDocument();
+    });
+    expect(screen.getByText('HEALTHY')).toBeInTheDocument();
+    expect(screen.getByText('5m')).toBeInTheDocument();
   });
 
-  it('shows "No cronjobs configured" when empty', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ cronjobs: [] }) });
+  it('renders an unhealthy agent card with UNHEALTHY label', async () => {
+    const agent: Agent = {
+      name: 'Atlas',
+      status: 'unhealthy',
+      last_response: '2026-04-13T07:00:00.000Z',
+      minutes_ago: 90,
+    };
+
+    const mockFetch = setupFetchMock();
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/agents') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ agents: [agent] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    renderWithProvider(<AgentHealthPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('UNHEALTHY')).toBeInTheDocument();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CronJobPanel
+// ---------------------------------------------------------------------------
+
+describe('CronJobPanel', () => {
+  beforeEach(() => { setupFetchMock(); });
+
+  it('renders the panel heading', () => {
+    renderWithProvider(<CronJobPanel />);
+    expect(screen.getByText('Cron Job Monitor')).toBeInTheDocument();
+  });
+
+  it('shows empty-state message when no cronjobs are configured', () => {
     renderWithProvider(<CronJobPanel />);
     expect(screen.getByText('No cronjobs configured')).toBeInTheDocument();
   });
+
+  it('renders a cronjob card and shows collapsed logs toggle', async () => {
+    const cronjob: CronJob = {
+      name: 'obster-monitor',
+      status: 'active',
+      last_run: '2026-04-13T08:00:00.000Z',
+      exit_code: 0,
+      recent_logs: ['Starting monitor...', 'All checks passed.'],
+    };
+
+    const mockFetch = setupFetchMock();
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/cronjobs') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ cronjobs: [cronjob] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    renderWithProvider(<CronJobPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('obster-monitor')).toBeInTheDocument();
+    });
+
+    // Logs are collapsed by default — the log content should not be visible
+    expect(screen.queryByText('Starting monitor...')).not.toBeInTheDocument();
+
+    // Clicking the toggle shows the logs
+    const toggleBtn = screen.getByRole('button', { name: /Recent Logs/i });
+    fireEvent.click(toggleBtn);
+    expect(screen.getByText('Starting monitor...')).toBeInTheDocument();
+  });
+
+  it('displays non-zero exit code in error color', async () => {
+    const cronjob: CronJob = {
+      name: 'obster-cron',
+      status: 'failed',
+      last_run: '2026-04-13T07:00:00.000Z',
+      exit_code: 1,
+      recent_logs: [],
+    };
+
+    const mockFetch = setupFetchMock();
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/cronjobs') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ cronjobs: [cronjob] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    renderWithProvider(<CronJobPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1')).toBeInTheDocument();
+    });
+  });
 });
 
+// ---------------------------------------------------------------------------
+// ExecutionLogPanel
+// ---------------------------------------------------------------------------
+
 describe('ExecutionLogPanel', () => {
-  beforeEach(() => mockFetch.mockClear());
+  beforeEach(() => { setupFetchMock(); });
 
-  it('renders without crashing', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ logs: [], count: 0 }) });
+  it('renders the panel heading', () => {
     renderWithProvider(<ExecutionLogPanel />);
-    expect(screen.getByText('執行 Log')).toBeInTheDocument();
+    expect(screen.getByText('Execution Logs')).toBeInTheDocument();
   });
 
-  it('shows limit note', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ logs: [], count: 0 }) });
+  it('shows the "Last 20 entries" hint', () => {
     renderWithProvider(<ExecutionLogPanel />);
-    expect(screen.getByText(/\(最近 20 筆\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Last 20 entries/)).toBeInTheDocument();
   });
 
-  it('shows "No execution logs found" when empty', () => {
-    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ logs: [], count: 0 }) });
+  it('shows empty-state message when there are no logs', () => {
     renderWithProvider(<ExecutionLogPanel />);
     expect(screen.getByText('No execution logs found')).toBeInTheDocument();
+  });
+
+  it('renders a log entry and expands its JSON on click', async () => {
+    const logEntry: LogEntry = {
+      filename: 'exec-20260413-001.json',
+      path: '/logs/exec-20260413-001.json',
+      timestamp: '2026-04-13T08:00:00.000Z',
+      content: { status: 'success', duration_ms: 1200 },
+    };
+
+    const mockFetch = setupFetchMock();
+    mockFetch.mockImplementation((url: string) => {
+      if (url === '/api/logs') {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ logs: [logEntry], count: 1 }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    });
+
+    renderWithProvider(<ExecutionLogPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText('exec-20260413-001.json')).toBeInTheDocument();
+    });
+
+    // JSON is hidden initially
+    expect(screen.queryByText(/"status"/)).not.toBeInTheDocument();
+
+    // Expand the card
+    fireEvent.click(screen.getByRole('button', { name: /exec-20260413-001\.json/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/"status"/)).toBeInTheDocument();
+    });
   });
 });

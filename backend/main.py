@@ -289,7 +289,7 @@ async def get_agents(timeout_minutes: int = 30):
                     if date_str:
                         agent_message_times[agent_name].append(date_str)
 
-        now = datetime.utcnow().timestamp()
+        now = datetime.now(timezone.utc).timestamp()
 
         for agent_name in AGENTS:
             if agent_name in agent_message_times and agent_message_times[agent_name]:

@@ -1,12 +1,29 @@
+# Standalone frontend-only build image.
+# Produces the same nginx:alpine image as the main Dockerfile but with an
+# explicit image name for independent tagging/pushing.
 FROM node:20-alpine AS builder
+
+LABEL org.opencontainers.image.title="Obster Dashboard Frontend Builder" \
+      org.opencontainers.image.description="Vite build stage for Obster Dashboard" \
+      org.opencontainers.image.version="1.0.0"
+
 WORKDIR /app/frontend
-COPY frontend/package*.json ./
+
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
+
 COPY frontend/ ./
 RUN npm run build
 
+# ─── Final image ─────────────────────────────────────────────────────────────
 FROM nginx:alpine
+
 COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget -qO- http://localhost/ || exit 1
+
 CMD ["nginx", "-g", "daemon off;"]

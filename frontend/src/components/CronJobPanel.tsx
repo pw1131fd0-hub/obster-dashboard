@@ -1,50 +1,101 @@
+import { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import type { CronJob } from '../types';
 
-function getStatusBadge(status: string) {
-  const statusConfig: Record<string, { bg: string; text: string }> = {
-    active: { bg: 'bg-success/20', text: 'text-success' },
-    inactive: { bg: 'bg-error/20', text: 'text-error' },
-    failed: { bg: 'bg-error/20', text: 'text-error' },
-    activating: { bg: 'bg-warning/20', text: 'text-warning' },
-    deactivating: { bg: 'bg-warning/20', text: 'text-warning' },
+function getStatusConfig(status: string): { bg: string; text: string; dot: string } {
+  const map: Record<string, { bg: string; text: string; dot: string }> = {
+    active:       { bg: 'bg-success/10 border-success/30',  text: 'text-success',    dot: 'bg-success'    },
+    inactive:     { bg: 'bg-error/10 border-error/30',      text: 'text-error',      dot: 'bg-error'      },
+    failed:       { bg: 'bg-error/10 border-error/30',      text: 'text-error',      dot: 'bg-error'      },
+    activating:   { bg: 'bg-warning/10 border-warning/30',  text: 'text-warning',    dot: 'bg-warning'    },
+    deactivating: { bg: 'bg-warning/10 border-warning/30',  text: 'text-warning',    dot: 'bg-warning'    },
+    timeout:      { bg: 'bg-warning/10 border-warning/30',  text: 'text-warning',    dot: 'bg-warning'    },
+    error:        { bg: 'bg-error/10 border-error/30',      text: 'text-error',      dot: 'bg-error'      },
   };
-  const config = statusConfig[status] || { bg: 'bg-gray-500/20', text: 'text-text-muted' };
-  return { bg: config.bg, text: config.text };
+  return map[status] ?? { bg: 'bg-white/5 border-white/10', text: 'text-text-muted', dot: 'bg-text-muted' };
 }
 
 function CronJobCard({ cronjob }: { cronjob: CronJob }) {
-  const { bg, text } = getStatusBadge(cronjob.status);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const { bg, text, dot } = getStatusConfig(cronjob.status);
+  const exitCodeOk = cronjob.exit_code === 0;
+
   return (
-    <div className="bg-secondary rounded-lg p-4 mb-3">
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-semibold">{cronjob.name}</h3>
-        <span className={`px-2 py-1 rounded text-xs ${bg} ${text} font-medium`}>
-          {cronjob.status.toUpperCase()}
+    <div className={`rounded-lg p-4 mb-3 border ${bg}`}>
+      {/* Header row */}
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${dot}`}
+            aria-hidden="true"
+          />
+          <h3 className="font-semibold text-text">{cronjob.name}</h3>
+        </div>
+        <span className={`text-xs font-semibold uppercase tracking-wide ${text}`}>
+          {cronjob.status}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 gap-3 text-sm mb-3">
         <div>
-          <span className="text-text-muted">Last Run</span>
-          <p className="font-semibold text-sm">
-            {cronjob.last_run ? new Date(cronjob.last_run).toLocaleString() : 'N/A'}
+          <p className="text-text-muted text-xs mb-0.5">Last Run</p>
+          <p className="font-medium text-text text-xs tabular-nums">
+            {cronjob.last_run
+              ? new Date(cronjob.last_run).toLocaleString()
+              : 'N/A'}
           </p>
         </div>
         <div>
-          <span className="text-text-muted">Exit Code</span>
-          <p className={`font-bold ${cronjob.exit_code === 0 ? 'text-success' : 'text-error'}`}>
+          <p className="text-text-muted text-xs mb-0.5">Exit Code</p>
+          <p
+            className={`font-bold text-sm ${
+              cronjob.exit_code === null
+                ? 'text-text-muted'
+                : exitCodeOk
+                ? 'text-success'
+                : 'text-error'
+            }`}
+          >
             {cronjob.exit_code ?? 'N/A'}
           </p>
         </div>
       </div>
+
+      {/* Collapsible logs */}
       {cronjob.recent_logs.length > 0 && (
-        <div className="mt-2">
-          <p className="text-text-muted text-xs mb-1">Recent Logs:</p>
-          <div className="bg-primary rounded p-2 text-xs font-mono max-h-24 overflow-y-auto">
-            {cronjob.recent_logs.slice(0, 5).map((log, i) => (
-              <div key={i} className="text-text-muted">{log}</div>
-            ))}
-          </div>
+        <div>
+          <button
+            type="button"
+            onClick={() => setLogsOpen((o) => !o)}
+            aria-expanded={logsOpen}
+            className="
+              flex items-center gap-1 text-xs text-text-muted hover:text-text
+              transition-colors duration-150
+              focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
+              rounded
+            "
+          >
+            <svg
+              className={`w-3 h-3 transition-transform ${logsOpen ? 'rotate-90' : ''}`}
+              viewBox="0 0 12 12"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M4.5 2L9 6l-4.5 4V2z" />
+            </svg>
+            Recent Logs ({cronjob.recent_logs.length})
+          </button>
+
+          {logsOpen && (
+            <div className="mt-2 bg-primary rounded p-2 overflow-y-auto max-h-32">
+              {cronjob.recent_logs.slice(0, 5).map((line, i) => (
+                <p key={i} className="text-text-muted text-xs font-mono leading-5 whitespace-pre-wrap break-all">
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -56,13 +107,15 @@ export function CronJobPanel() {
 
   return (
     <div className="bg-secondary rounded-lg p-4">
-      <h2 className="text-xl font-bold mb-4 flex items-center">
-        <span className="mr-2">⏰</span> Cron Job 監控
+      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+        <span aria-hidden="true">⏰</span>
+        Cron Job Monitor
       </h2>
+
       {state.cronjobs.length === 0 ? (
-        <p className="text-text-muted">No cronjobs configured</p>
+        <p className="text-text-muted text-sm">No cronjobs configured</p>
       ) : (
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-[36rem] overflow-y-auto pr-1">
           {state.cronjobs.map((cronjob) => (
             <CronJobCard key={cronjob.name} cronjob={cronjob} />
           ))}
