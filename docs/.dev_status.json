@@ -1,19 +1,9 @@
 {
-  "stage": "prd",
+  "stage": "plan_pending",
   "iteration": 1,
-  "quality_score": 85,
-  "quality_details": {
-    "產品願景": 100,
-    "user_story": 100,
-    "p0_p1_p2功能分級": 100,
-    "非功能需求": 100,
-    "技術選型": 100,
-    "ui_ux色彩計劃": 100,
-    "成功指標": 100
-  },
-  "completeness": 95,
-  "summary": "PRD 文件完成，包含 7 項必備內容。實作進度：後端 FastAPI (100%)、前端 React (100%)、Docker 部署 (90%)、測試覆蓋 (100% - backend 18 tests passed, frontend 10 tests passed)",
-  "blocking_errors": [],
-  "next_action": "PRD 階段完成，quality_score 85 分達標，等待 dispatcher 評估是否進入 dev 階段",
-  "updated_at": "2026-04-13T00:40:00.000Z"
+  "quality_score": 0,
+  "completeness": 0,
+  "summary": "PLAN.md 已寫入，請在 Notion 打勾「確認」",
+  "next_action": "老闆在 Notion 打勾「確認」後 Worker 就會繼續執行",
+  "updated_at": "2026-04-13T00:43:51.774Z"
 }
