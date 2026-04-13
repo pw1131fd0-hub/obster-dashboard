@@ -1,9 +1,16 @@
 """
 OpenClaw Dashboard - FastAPI Backend
+
+Monitors the OpenClaw distributed system including:
+- Project development status
+- Cron job health via systemd
+- AI Agent status via Telegram Bot API
+- Execution logs
 """
 import os
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, List
@@ -11,7 +18,7 @@ from collections import defaultdict
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import uvicorn
 
 logging.basicConfig(level=logging.INFO)
@@ -21,9 +28,12 @@ logger = logging.getLogger(__name__)
 PROJECTS_PATH = os.getenv("PROJECTS_PATH", "/home/crawd_user/project")
 LOGS_PATH = os.getenv("LOGS_PATH", "/home/crawd_user/.openclaw/workspace/logs/executions")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-AGENTS = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
 TIMEOUT_MINUTES = int(os.getenv("TIMEOUT_MINUTES", "30"))
 REFRESH_INTERVAL = int(os.getenv("REFRESH_INTERVAL", "30000"))
+AGENTS = os.getenv("AGENTS", "Argus,Hephaestus,Atlas,Hestia,Hermes,Main").split(",")
+
+# Track application start time for uptime calculation
+APP_START_TIME = time.time()
 
 app = FastAPI(title="OpenClaw Dashboard API", version="1.0.0")
 
@@ -39,10 +49,10 @@ app.add_middleware(
 class ProjectInfo(BaseModel):
     name: str
     path: str
-    stage: str
-    iteration: int
-    quality_score: int
-    blocking_errors: List[str]
+    stage: str = Field(default="unknown", description="prd | dev | test | security")
+    iteration: int = Field(default=0)
+    quality_score: int = Field(default=0, ge=0, le=100)
+    blocking_errors: List[str] = Field(default_factory=list)
     updated_at: str
 
 class ProjectResponse(BaseModel):
@@ -92,7 +102,7 @@ async def health():
     """System health check"""
     return HealthResponse(
         status="healthy",
-        uptime_seconds=0,
+        uptime_seconds=round(time.time() - APP_START_TIME, 2),
         version="1.0.0"
     )
 
