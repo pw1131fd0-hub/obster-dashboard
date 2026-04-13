@@ -1,32 +1,40 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
-import type { DashboardState, DashboardAction } from '../types';
+import type { DashboardState, DashboardAction, Project, CronJob, Agent, LogEntry } from '../types';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+
+interface DashboardContextType extends DashboardState {
+  fetchData: () => Promise<void>;
+  refresh: () => void;
+}
 
 const initialState: DashboardState = {
   projects: [],
   cronjobs: [],
   agents: [],
   logs: [],
-  lastRefresh: null,
+  loading: false,
   error: null,
+  lastUpdated: null,
 };
 
 function dashboardReducer(state: DashboardState, action: DashboardAction): DashboardState {
   switch (action.type) {
-    case 'SET_DATA':
-      return { ...state, ...action.payload, lastRefresh: new Date().toISOString(), error: null };
-    case 'SET_ERROR':
-      return { ...state, error: action.payload };
-    case 'CLEAR_ERROR':
-      return { ...state, error: null };
+    case 'FETCH_START':
+      return { ...state, loading: true, error: null };
+    case 'FETCH_SUCCESS':
+      return {
+        ...state,
+        ...action.payload,
+        loading: false,
+        error: null,
+        lastUpdated: new Date().toISOString(),
+      };
+    case 'FETCH_ERROR':
+      return { ...state, loading: false, error: action.payload };
     default:
       return state;
   }
-}
-
-interface DashboardContextType {
-  state: DashboardState;
-  dispatch: React.Dispatch<DashboardAction>;
-  refresh: () => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | null>(null);
@@ -35,34 +43,43 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
   const fetchData = useCallback(async () => {
+    dispatch({ type: 'FETCH_START' });
+
     try {
       const [projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
-        fetch('/api/projects'),
-        fetch('/api/cronjobs'),
-        fetch('/api/agents'),
-        fetch('/api/logs'),
+        fetch(`${API_BASE_URL}/projects`),
+        fetch(`${API_BASE_URL}/cronjobs`),
+        fetch(`${API_BASE_URL}/agents`),
+        fetch(`${API_BASE_URL}/logs`),
       ]);
 
-      const [projects, cronjobs, agents, logs] = await Promise.all([
-        projectsRes.json(),
-        cronjobsRes.json(),
-        agentsRes.json(),
-        logsRes.json(),
+      const [projectsData, cronjobsData, agentsData, logsData] = await Promise.all([
+        projectsRes.json().catch(() => ({ projects: [] })),
+        cronjobsRes.json().catch(() => ({ cronjobs: [] })),
+        agentsRes.json().catch(() => ({ agents: [] })),
+        logsRes.json().catch(() => ({ logs: [] })),
       ]);
 
       dispatch({
-        type: 'SET_DATA',
+        type: 'FETCH_SUCCESS',
         payload: {
-          projects: projects.projects || [],
-          cronjobs: cronjobs.cronjobs || [],
-          agents: agents.agents || [],
-          logs: logs.logs || [],
+          projects: (projectsData as { projects: Project[] }).projects || [],
+          cronjobs: (cronjobsData as { cronjobs: CronJob[] }).cronjobs || [],
+          agents: (agentsData as { agents: Agent[] }).agents || [],
+          logs: (logsData as { logs: LogEntry[] }).logs || [],
         },
       });
-    } catch (error) {
-      dispatch({ type: 'SET_ERROR', payload: 'Failed to fetch dashboard data' });
+    } catch (err) {
+      dispatch({
+        type: 'FETCH_ERROR',
+        payload: err instanceof Error ? err.message : 'Failed to fetch data',
+      });
     }
   }, []);
+
+  const refresh = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     fetchData();
@@ -71,7 +88,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [fetchData]);
 
   return (
-    <DashboardContext.Provider value={{ state, dispatch, refresh: fetchData }}>
+    <DashboardContext.Provider value={{ ...state, fetchData, refresh }}>
       {children}
     </DashboardContext.Provider>
   );
