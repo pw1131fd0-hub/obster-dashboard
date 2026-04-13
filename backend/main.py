@@ -1,403 +1,312 @@
 """
-Obster Dashboard Backend - FastAPI Application
-Monitors OpenClaw distributed system status via REST API.
+Obster Dashboard Backend API
+FastAPI application providing system monitoring endpoints.
 """
 
 import json
 import os
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import datetime
+from glob import glob
 from pathlib import Path
 from typing import Optional
 
 import requests
 from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-# Environment Variables
+# Environment configuration
 PROJECTS_PATH = os.getenv("PROJECTS_PATH", "/home/crawd_user/project")
 LOGS_PATH = os.getenv("LOGS_PATH", "/home/crawd_user/.openclaw/workspace/logs/executions")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TIMEOUT_MINUTES = int(os.getenv("TIMEOUT_MINUTES", "30"))
 
-# Default services to check
-DEFAULT_SERVICES = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
-
-# Default agents
-DEFAULT_AGENTS = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
-
-VERSION = "1.0.0"
-
-# Uptime tracking
-APP_START_TIME = time.time()
-
-# FastAPI App
-app = FastAPI(title="Obster Dashboard API", version=VERSION)
-
-# CORS middleware for frontend access
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# ============== Response Models ==============
+# Pydantic Models
 
 
 class HealthResponse(BaseModel):
-    """Health check response model per PLAN.md section 8.2."""
-    status: str = Field(description="Health status", examples=["healthy"])
-    uptime_seconds: float = Field(description="Application uptime in seconds")
-    version: str = Field(description="Application version")
+    status: str
+    uptime_seconds: float
+    version: str
 
 
-class Project(BaseModel):
-    """Individual project status per PLAN.md section 8.2."""
-    name: str = Field(description="Project name")
-    path: str = Field(description="Project path")
-    stage: str = Field(description="Current stage (prd|dev|test|security)")
-    iteration: int = Field(description="Iteration number")
-    quality_score: float = Field(description="Quality score (0-100)")
-    blocking_errors: list[str] = Field(description="List of blocking errors")
-    updated_at: str = Field(description="Last update timestamp (ISO8601)")
+class ProjectStatus(BaseModel):
+    name: str
+    path: str
+    last_updated: Optional[str] = None
+    dev_status: Optional[dict] = None
 
 
 class ProjectResponse(BaseModel):
-    """Projects list response model per PLAN.md section 8.2."""
-    projects: list[Project] = Field(description="List of projects")
-    timestamp: str = Field(description="Response timestamp")
+    projects: list[ProjectStatus]
+    total: int
 
 
-class CronJob(BaseModel):
-    """Individual cron job status per PLAN.md section 8.2."""
-    name: str = Field(description="Service name")
-    status: str = Field(description="Status (active|inactive|failed|error)")
-    last_run: Optional[str] = Field(default=None, description="Last run timestamp")
-    exit_code: Optional[int] = Field(default=None, description="Exit code")
-    recent_logs: list[str] = Field(description="Recent log lines")
+class CronJobService(BaseModel):
+    name: str
+    active_state: str
+    sub_state: str
+    load_state: str
+    unit_file: Optional[str] = None
 
 
 class CronJobResponse(BaseModel):
-    """Cron jobs list response model per PLAN.md section 8.2."""
-    cronjobs: list[CronJob] = Field(description="List of cron jobs")
-    timestamp: str = Field(description="Response timestamp")
+    services: list[CronJobService]
+    total: int
 
 
-class Agent(BaseModel):
-    """Individual agent status per PLAN.md section 8.2."""
-    name: str = Field(description="Agent name")
-    status: str = Field(description="Status (healthy|unhealthy|unknown|error)")
-    last_response: Optional[str] = Field(default=None, description="Last response timestamp")
-    minutes_ago: Optional[int] = Field(default=None, description="Minutes since last response")
+class AgentStatus(BaseModel):
+    name: str
+    active: bool
+    last_update: Optional[dict] = None
+    error: Optional[str] = None
 
 
 class AgentResponse(BaseModel):
-    """Agents list response model per PLAN.md section 8.2."""
-    agents: list[Agent] = Field(description="List of agents")
-    timestamp: str = Field(description="Response timestamp")
+    agents: list[AgentStatus]
+    total: int
 
 
 class LogEntry(BaseModel):
-    """Individual log entry per PLAN.md section 8.2."""
-    filename: str = Field(description="Log filename")
-    path: str = Field(description="Full file path")
-    timestamp: str = Field(description="File modification timestamp")
-    content: dict = Field(description="Log content as parsed JSON")
+    filename: str
+    path: str
+    mtime: float
+    content: Optional[dict] = None
 
 
 class LogResponse(BaseModel):
-    """Logs list response model per PLAN.md section 8.2."""
-    logs: list[LogEntry] = Field(description="List of log entries")
-    count: int = Field(description="Total log count")
-    timestamp: str = Field(description="Response timestamp")
+    logs: list[LogEntry]
+    total: int
 
 
 class ConfigResponse(BaseModel):
-    """System configuration response model."""
-    projects_path: str = Field(description="Projects directory path")
-    logs_path: str = Field(description="Logs directory path")
-    timeout_minutes: int = Field(description="Agent timeout threshold in minutes")
-    services: list[str] = Field(description="Services being monitored")
-    agents: list[str] = Field(description="Agents being tracked")
+    PROJECTS_PATH: str
+    LOGS_PATH: str
+    TELEGRAM_BOT_TOKEN: str
+    TIMEOUT_MINUTES: int
 
 
-# ============== Helper Functions ==============
+# FastAPI Application
+app = FastAPI(title="Obster Dashboard API", version="1.0.0")
+
+# Track application start time
+APP_START_TIME = time.time()
 
 
-def get_timestamp() -> str:
-    """Get current UTC timestamp in ISO8601 format."""
-    return datetime.now(timezone.utc).isoformat()
-
-
-def parse_systemctl_show(service_name: str) -> dict:
-    """Parse systemctl show output for a service."""
-    result = {
-        "status": "inactive",
-        "last_run": None,
-        "exit_code": None,
-        "recent_logs": []
-    }
+def get_systemctl_show(service_name: str) -> dict:
+    """Get systemctl show output for a service."""
     try:
-        proc = subprocess.run(
+        result = subprocess.run(
             ["systemctl", "show", service_name],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=10,
         )
-        for line in proc.stdout.splitlines():
-            if line.startswith("ActiveState="):
-                state = line.split("=", 1)[1]
-                if state == "active":
-                    result["status"] = "active"
-                elif state == "inactive":
-                    result["status"] = "inactive"
-                elif state == "failed":
-                    result["status"] = "failed"
-                else:
-                    result["status"] = state
-            elif line.startswith("ExecMainStatus="):
-                try:
-                    result["exit_code"] = int(line.split("=", 1)[1])
-                except ValueError:
-                    pass
-    except subprocess.TimeoutExpired:
-        result["status"] = "timeout"
-    except Exception as e:
-        result["status"] = "error"
-        result["recent_logs"] = [str(e)]
+        if result.returncode == 0:
+            info = {}
+            for line in result.stdout.strip().split("\n"):
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    info[key] = value
+            return info
+        return {}
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return {}
 
-    # Get recent logs from journalctl
+
+def get_journalctl_logs(service_name: str, lines: int = 10) -> list[str]:
+    """Get recent journalctl logs for a service."""
     try:
-        proc = subprocess.run(
-            ["journalctl", "--since", "1 hour ago", "-u", service_name, "--no-pager", "-n", "5"],
+        result = subprocess.run(
+            ["journalctl", "-u", service_name, "-n", str(lines), "--no-pager"],
             capture_output=True,
             text=True,
-            timeout=5
+            timeout=10,
         )
-        if proc.stdout:
-            lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-            result["recent_logs"] = lines[:5]
-    except subprocess.TimeoutExpired:
-        result["recent_logs"] = ["timeout"]
+        if result.returncode == 0:
+            return result.stdout.strip().split("\n")
+        return []
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return []
+
+
+def poll_telegram_updates(agent_name: str, offset: int = 0) -> dict:
+    """Poll Telegram Bot API for updates."""
+    if not TELEGRAM_BOT_TOKEN:
+        return {"error": "Telegram bot token not configured"}
+
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+        params = {"offset": offset, "timeout": 1}
+        response = requests.get(url, params=params, timeout=5)
+        data = response.json()
+
+        if response.status_code == 200 and data.get("ok"):
+            updates = data.get("result", [])
+            for update in updates:
+                if update.get("message", {}).get("chat", {}).get("username") == agent_name:
+                    return {"update": update, "agent_name": agent_name}
+            return {"update_count": len(updates), "agent_name": agent_name}
+        return {"error": data.get("description", "Unknown error")}
+    except requests.RequestException as e:
+        return {"error": str(e)}
     except Exception as e:
-        result["recent_logs"].append(str(e))
-
-    return result
+        return {"error": str(e)}
 
 
-def scan_projects(projects_path: str) -> list[Project]:
-    """Scan PROJECTS_PATH for .dev_status.json files."""
+def scan_projects() -> list[ProjectStatus]:
+    """Scan PROJECTS_PATH for project .dev_status.json files."""
     projects = []
-    path = Path(projects_path)
+    projects_base = Path(PROJECTS_PATH)
 
-    if not path.exists():
+    if not projects_base.exists():
         return projects
 
-    for entry in path.iterdir():
-        if not entry.is_dir():
+    for project_dir in projects_base.iterdir():
+        if not project_dir.is_dir():
             continue
-        dev_status_file = entry / "docs" / ".dev_status.json"
-        if not dev_status_file.exists():
-            continue
-        try:
-            with open(dev_status_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            projects.append(Project(
-                name=entry.name,
-                path=str(entry),
-                stage=data.get("stage", "dev"),
-                iteration=data.get("iteration", 0),
-                quality_score=data.get("quality_score", 0),
-                blocking_errors=data.get("blocking_errors", []),
-                updated_at=data.get("updated_at", "")
-            ))
-        except Exception:
-            continue
-
+        dev_status_path = project_dir / "docs" / ".dev_status.json"
+        if dev_status_path.exists():
+            try:
+                with open(dev_status_path, "r") as f:
+                    dev_status = json.load(f)
+                stat = dev_status_path.stat()
+                projects.append(
+                    ProjectStatus(
+                        name=project_dir.name,
+                        path=str(project_dir),
+                        last_updated=datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        dev_status=dev_status,
+                    )
+                )
+            except (json.JSONDecodeError, IOError):
+                projects.append(
+                    ProjectStatus(
+                        name=project_dir.name,
+                        path=str(project_dir),
+                        last_updated=None,
+                        dev_status=None,
+                    )
+                )
     return projects
 
 
-def get_agent_health(telegram_token: str, timeout_minutes: int) -> list[Agent]:
-    """Get agent health by polling Telegram Bot API getUpdates."""
-    agents_data = []
-    now = datetime.now(timezone.utc)
+def scan_logs(limit: int = 20) -> list[LogEntry]:
+    """Scan LOGS_PATH for JSON log files sorted by mtime desc."""
+    logs_path = Path(LOGS_PATH)
 
-    if not telegram_token:
-        for name in DEFAULT_AGENTS:
-            agents_data.append(Agent(
-                name=name,
-                status="unknown",
-                last_response=None,
-                minutes_ago=None
-            ))
-        return agents_data
+    if not logs_path.exists():
+        return []
 
-    try:
-        response = requests.get(
-            f"https://api.telegram.org/bot{telegram_token}/getUpdates",
-            params={"limit": 100},
-            timeout=10
-        )
-        response.raise_for_status()
-        updates = response.json().get("result", [])
-
-        # Track last update time per agent name
-        agent_last_times = {name: None for name in DEFAULT_AGENTS}
-
-        for update in updates:
-            msg = update.get("message", {})
-            text = msg.get("text", "")
-            # Check if any agent name appears in the message
-            for name in DEFAULT_AGENTS:
-                if name.lower() in text.lower():
-                    ts = msg.get("date")
-                    if ts:
-                        msg_time = datetime.fromtimestamp(ts, tz=timezone.utc)
-                        if agent_last_times[name] is None or msg_time > agent_last_times[name]:
-                            agent_last_times[name] = msg_time
-
-        for name in DEFAULT_AGENTS:
-            last_time = agent_last_times[name]
-            if last_time is None:
-                agents_data.append(Agent(
-                    name=name,
-                    status="unknown",
-                    last_response=None,
-                    minutes_ago=None
-                ))
-            else:
-                diff = (now - last_time).total_seconds() / 60
-                minutes_ago = int(diff)
-                status = "healthy" if minutes_ago < timeout_minutes else "unhealthy"
-                agents_data.append(Agent(
-                    name=name,
-                    status=status,
-                    last_response=last_time.isoformat(),
-                    minutes_ago=minutes_ago
-                ))
-
-    except Exception:
-        for name in DEFAULT_AGENTS:
-            agents_data.append(Agent(
-                name=name,
-                status="error",
-                last_response=None,
-                minutes_ago=None
-            ))
-
-    return agents_data
-
-
-def read_logs(logs_path: str, limit: int = 20) -> list[LogEntry]:
-    """Read log files from LOGS_PATH, sorted by mtime descending."""
-    logs = []
-    path = Path(logs_path)
-
-    if not path.exists():
-        return logs
-
-    json_files = list(path.glob("*.json"))
-    json_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
-
-    for file in json_files[:limit]:
+    log_files = glob(str(logs_path / "*.json"))
+    file_times = []
+    for log_file in log_files:
         try:
-            with open(file, "r", encoding="utf-8") as f:
-                content = json.load(f)
-            logs.append(LogEntry(
-                filename=file.name,
-                path=str(file),
-                timestamp=datetime.fromtimestamp(file.stat().st_mtime, tz=timezone.utc).isoformat(),
-                content=content
-            ))
-        except Exception:
+            stat = Path(log_file).stat()
+            file_times.append((stat.st_mtime, log_file))
+        except OSError:
             continue
 
-    return logs
+    # Sort by mtime descending
+    file_times.sort(key=lambda x: x[0], reverse=True)
+    file_times = file_times[:limit]
+
+    log_entries = []
+    for mtime, log_file in file_times:
+        content = None
+        try:
+            with open(log_file, "r") as f:
+                content = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+        log_entries.append(
+            LogEntry(
+                filename=Path(log_file).name,
+                path=log_file,
+                mtime=mtime,
+                content=content,
+            )
+        )
+    return log_entries
 
 
-# ============== API Endpoints ==============
+# API Endpoints
 
 
 @app.get("/api/health", response_model=HealthResponse)
-async def get_health():
-    """Health check endpoint per PLAN.md section 8.1."""
-    uptime_seconds = time.time() - APP_START_TIME
-    return HealthResponse(
-        status="healthy",
-        uptime_seconds=round(uptime_seconds, 2),
-        version=VERSION
-    )
+def get_health():
+    """Health check endpoint."""
+    uptime = time.time() - APP_START_TIME
+    return HealthResponse(status="healthy", uptime_seconds=round(uptime, 2), version="1.0.0")
 
 
 @app.get("/api/projects", response_model=ProjectResponse)
-async def get_projects():
-    """Get all project statuses per PLAN.md section 8.1."""
-    projects = scan_projects(PROJECTS_PATH)
-    return ProjectResponse(
-        projects=projects,
-        timestamp=get_timestamp()
-    )
+def get_projects():
+    """Get all projects with .dev_status.json files."""
+    projects = scan_projects()
+    return ProjectResponse(projects=projects, total=len(projects))
 
 
 @app.get("/api/cronjobs", response_model=CronJobResponse)
-async def get_cronjobs():
-    """Get cronjob statuses using systemctl and journalctl per PLAN.md section 8.1."""
-    cronjobs = []
+def get_cronjobs():
+    """Get cron job service statuses."""
+    service_names = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
+    services = []
 
-    for service in DEFAULT_SERVICES:
-        data = parse_systemctl_show(service)
-        cronjobs.append(CronJob(
-            name=service,
-            status=data["status"],
-            last_run=data["last_run"],
-            exit_code=data["exit_code"],
-            recent_logs=data["recent_logs"]
-        ))
+    for name in service_names:
+        info = get_systemctl_show(name)
+        services.append(
+            CronJobService(
+                name=name,
+                active_state=info.get("ActiveState", "unknown"),
+                sub_state=info.get("SubState", "unknown"),
+                load_state=info.get("LoadState", "unknown"),
+                unit_file=info.get("UnitFile"),
+            )
+        )
 
-    return CronJobResponse(
-        cronjobs=cronjobs,
-        timestamp=get_timestamp()
-    )
+    return CronJobResponse(services=services, total=len(services))
 
 
 @app.get("/api/agents", response_model=AgentResponse)
-async def get_agents():
-    """Get agent health by polling Telegram Bot API per PLAN.md section 8.1."""
-    agents = get_agent_health(TELEGRAM_BOT_TOKEN, TIMEOUT_MINUTES)
-    return AgentResponse(
-        agents=agents,
-        timestamp=get_timestamp()
-    )
+def get_agents():
+    """Get agent statuses by polling Telegram Bot API."""
+    agent_names = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
+    agents = []
+
+    for name in agent_names:
+        result = poll_telegram_updates(name)
+        if "error" in result:
+            agents.append(AgentStatus(name=name, active=False, error=result["error"]))
+        else:
+            agents.append(AgentStatus(name=name, active=True, last_update=result.get("update")))
+
+    return AgentResponse(agents=agents, total=len(agents))
 
 
 @app.get("/api/logs", response_model=LogResponse)
-async def get_logs(limit: int = 20):
-    """Get execution logs from LOGS_PATH per PLAN.md section 8.1."""
-    logs = read_logs(LOGS_PATH, limit)
-    return LogResponse(
-        logs=logs,
-        count=len(logs),
-        timestamp=get_timestamp()
-    )
+def get_logs(limit: int = 20):
+    """Get recent log files sorted by modification time."""
+    if limit < 1 or limit > 100:
+        limit = 20
+    logs = scan_logs(limit=limit)
+    return LogResponse(logs=logs, total=len(logs))
 
 
 @app.get("/api/config", response_model=ConfigResponse)
-async def get_config():
-    """Get system configuration per PLAN.md section 8.1."""
+def get_config():
+    """Get current environment configuration."""
     return ConfigResponse(
-        projects_path=PROJECTS_PATH,
-        logs_path=LOGS_PATH,
-        timeout_minutes=TIMEOUT_MINUTES,
-        services=DEFAULT_SERVICES,
-        agents=DEFAULT_AGENTS
+        PROJECTS_PATH=PROJECTS_PATH,
+        LOGS_PATH=LOGS_PATH,
+        TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN,
+        TIMEOUT_MINUTES=TIMEOUT_MINUTES,
     )
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
