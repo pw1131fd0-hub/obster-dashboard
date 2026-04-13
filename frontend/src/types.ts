@@ -15,7 +15,7 @@ export interface ProjectResponse {
 
 export interface CronJob {
   name: string;
-  status: 'active' | 'inactive' | 'failed' | 'error' | 'timeout';
+  status: 'active' | 'inactive' | 'failed' | 'error';
   last_run: string | null;
   exit_code: number | null;
   recent_logs: string[];
@@ -52,9 +52,15 @@ export interface LogResponse {
 }
 
 export interface HealthResponse {
-  status: string;
+  status: 'healthy';
   uptime_seconds: number;
   version: string;
+}
+
+export interface ConfigResponse {
+  refresh_interval: number;
+  timeout_minutes: number;
+  agents: string[];
 }
 
 export interface DashboardState {
@@ -62,12 +68,14 @@ export interface DashboardState {
   cronjobs: CronJob[];
   agents: Agent[];
   logs: LogEntry[];
+  config: ConfigResponse | null;
   loading: boolean;
   error: string | null;
-  lastUpdated: string | null;
+  lastUpdated: Date | null;
 }
 
 export type DashboardAction =
   | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
-  | { type: 'FETCH_ERROR'; payload: string };
+  | { type: 'FETCH_SUCCESS'; payload: Partial<Omit<DashboardState, 'loading' | 'error' | 'lastUpdated'>> }
+  | { type: 'FETCH_ERROR'; error: string }
+  | { type: 'SET_LAST_UPDATED' };

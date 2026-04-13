@@ -1,27 +1,13 @@
-# Stage 1: Build frontend
+# Stage 1: frontend-builder
 FROM node:20-alpine AS frontend-builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source and build
-COPY . .
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ .
 RUN npm run build
 
-# Stage 2: Serve with nginx
+# Stage 2: nginx (final)
 FROM nginx:alpine
-
-# Copy nginx configuration
+COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copy built frontend files
-COPY --from=frontend-builder /app/dist /usr/share/nginx/html
-
 EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]

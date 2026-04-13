@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -17,5 +18,5 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748B;
+  background: #64748b;
 }

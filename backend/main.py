@@ -8,12 +8,11 @@ import os
 import subprocess
 import time
 from datetime import datetime
-from glob import glob
 from pathlib import Path
 from typing import Optional
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 
 # Environment configuration
@@ -21,6 +20,12 @@ PROJECTS_PATH = os.getenv("PROJECTS_PATH", "/home/crawd_user/project")
 LOGS_PATH = os.getenv("LOGS_PATH", "/home/crawd_user/.openclaw/workspace/logs/executions")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TIMEOUT_MINUTES = int(os.getenv("TIMEOUT_MINUTES", "30"))
+
+# Agent list
+AGENTS = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
+
+# CronJob services to monitor
+CRONJOB_SERVICES = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
 
 # Pydantic Models
 
@@ -34,50 +39,54 @@ class HealthResponse(BaseModel):
 class ProjectStatus(BaseModel):
     name: str
     path: str
-    last_updated: Optional[str] = None
-    dev_status: Optional[dict] = None
+    stage: Optional[str] = None
+    iteration: Optional[int] = None
+    quality_score: Optional[int] = None
+    blocking_errors: list[str] = []
+    updated_at: Optional[str] = None
 
 
 class ProjectResponse(BaseModel):
     projects: list[ProjectStatus]
-    total: int
+    timestamp: str
 
 
-class CronJobService(BaseModel):
+class CronJobServiceStatus(BaseModel):
     name: str
-    active_state: str
-    sub_state: str
-    load_state: str
-    unit_file: Optional[str] = None
+    status: str
+    last_run: Optional[str] = None
+    exit_code: Optional[int] = None
+    recent_logs: list[str] = []
 
 
 class CronJobResponse(BaseModel):
-    services: list[CronJobService]
-    total: int
+    cronjobs: list[CronJobServiceStatus]
+    timestamp: str
 
 
-class AgentStatus(BaseModel):
+class AgentInfo(BaseModel):
     name: str
-    active: bool
-    last_update: Optional[dict] = None
-    error: Optional[str] = None
+    status: str
+    last_response: Optional[str] = None
+    minutes_ago: Optional[int] = None
 
 
 class AgentResponse(BaseModel):
-    agents: list[AgentStatus]
-    total: int
+    agents: list[AgentInfo]
+    timestamp: str
 
 
-class LogEntry(BaseModel):
+class LogFile(BaseModel):
     filename: str
     path: str
-    mtime: float
+    timestamp: str
     content: Optional[dict] = None
 
 
 class LogResponse(BaseModel):
-    logs: list[LogEntry]
-    total: int
+    logs: list[LogFile]
+    count: int
+    timestamp: str
 
 
 class ConfigResponse(BaseModel):
@@ -101,7 +110,7 @@ def get_systemctl_show(service_name: str) -> dict:
             ["systemctl", "show", service_name],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=5,
         )
         if result.returncode == 0:
             info = {}
@@ -119,10 +128,10 @@ def get_journalctl_logs(service_name: str, lines: int = 10) -> list[str]:
     """Get recent journalctl logs for a service."""
     try:
         result = subprocess.run(
-            ["journalctl", "-u", service_name, "-n", str(lines), "--no-pager"],
+            ["journalctl", "-u", service_name, "--since", "1 hour ago", "-n", str(lines), "--no-pager"],
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=5,
         )
         if result.returncode == 0:
             return result.stdout.strip().split("\n")
@@ -131,28 +140,24 @@ def get_journalctl_logs(service_name: str, lines: int = 10) -> list[str]:
         return []
 
 
-def poll_telegram_updates(agent_name: str, offset: int = 0) -> dict:
+def poll_telegram_updates() -> dict:
     """Poll Telegram Bot API for updates."""
     if not TELEGRAM_BOT_TOKEN:
-        return {"error": "Telegram bot token not configured"}
+        return {}
 
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
-        params = {"offset": offset, "timeout": 1}
+        params = {"limit": 100, "timeout": 1}
         response = requests.get(url, params=params, timeout=5)
         data = response.json()
 
         if response.status_code == 200 and data.get("ok"):
-            updates = data.get("result", [])
-            for update in updates:
-                if update.get("message", {}).get("chat", {}).get("username") == agent_name:
-                    return {"update": update, "agent_name": agent_name}
-            return {"update_count": len(updates), "agent_name": agent_name}
-        return {"error": data.get("description", "Unknown error")}
-    except requests.RequestException as e:
-        return {"error": str(e)}
-    except Exception as e:
-        return {"error": str(e)}
+            return {"updates": data.get("result", [])}
+        return {}
+    except requests.RequestException:
+        return {}
+    except Exception:
+        return {}
 
 
 def scan_projects() -> list[ProjectStatus]:
@@ -171,39 +176,40 @@ def scan_projects() -> list[ProjectStatus]:
             try:
                 with open(dev_status_path, "r") as f:
                     dev_status = json.load(f)
-                stat = dev_status_path.stat()
                 projects.append(
                     ProjectStatus(
                         name=project_dir.name,
                         path=str(project_dir),
-                        last_updated=datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                        dev_status=dev_status,
+                        stage=dev_status.get("stage"),
+                        iteration=dev_status.get("iteration"),
+                        quality_score=dev_status.get("quality_score"),
+                        blocking_errors=dev_status.get("blocking_errors", []),
+                        updated_at=dev_status.get("updated_at"),
                     )
                 )
-            except (json.JSONDecodeError, IOError):
+            except (json.JSONDecodeError, IOError, KeyError):
                 projects.append(
                     ProjectStatus(
                         name=project_dir.name,
                         path=str(project_dir),
-                        last_updated=None,
-                        dev_status=None,
+                        blocking_errors=[],
                     )
                 )
     return projects
 
 
-def scan_logs(limit: int = 20) -> list[LogEntry]:
+def scan_logs(limit: int = 20) -> list[LogFile]:
     """Scan LOGS_PATH for JSON log files sorted by mtime desc."""
     logs_path = Path(LOGS_PATH)
 
     if not logs_path.exists():
         return []
 
-    log_files = glob(str(logs_path / "*.json"))
+    log_files = list(logs_path.glob("*.json"))
     file_times = []
     for log_file in log_files:
         try:
-            stat = Path(log_file).stat()
+            stat = log_file.stat()
             file_times.append((stat.st_mtime, log_file))
         except OSError:
             continue
@@ -222,14 +228,80 @@ def scan_logs(limit: int = 20) -> list[LogEntry]:
             pass
 
         log_entries.append(
-            LogEntry(
-                filename=Path(log_file).name,
-                path=log_file,
-                mtime=mtime,
+            LogFile(
+                filename=log_file.name,
+                path=str(log_file),
+                timestamp=datetime.fromtimestamp(mtime).isoformat(),
                 content=content,
             )
         )
     return log_entries
+
+
+def get_cronjob_status(service_name: str) -> CronJobServiceStatus:
+    """Get status for a single cronjob service."""
+    info = get_systemctl_show(service_name)
+    active_state = info.get("ActiveState", "unknown")
+    exit_code_str = info.get("ExecMainStatus", "")
+    exit_code = int(exit_code_str) if exit_code_str.isdigit() else None
+
+    # Map systemctl state to our status
+    if active_state == "active":
+        status = "active"
+    elif active_state == "inactive":
+        status = "inactive"
+    elif active_state == "failed":
+        status = "failed"
+    else:
+        status = "error"
+
+    recent_logs = get_journalctl_logs(service_name, lines=5)
+
+    return CronJobServiceStatus(
+        name=service_name,
+        status=status,
+        last_run=None,
+        exit_code=exit_code,
+        recent_logs=recent_logs,
+    )
+
+
+def get_agent_status(agent_name: str, updates: list) -> AgentInfo:
+    """Get status for a single agent based on Telegram updates."""
+    now = datetime.utcnow()
+
+    for update in updates:
+        message = update.get("message", {})
+        chat = message.get("chat", {})
+        username = chat.get("username", "")
+
+        if username == agent_name:
+            date_str = message.get("date")
+            if date_str:
+                try:
+                    last_response = datetime.fromtimestamp(date_str)
+                    minutes_ago = int((now - last_response).total_seconds() / 60)
+
+                    if minutes_ago >= TIMEOUT_MINUTES:
+                        agent_status = "unhealthy"
+                    else:
+                        agent_status = "healthy"
+
+                    return AgentInfo(
+                        name=agent_name,
+                        status=agent_status,
+                        last_response=last_response.isoformat(),
+                        minutes_ago=minutes_ago,
+                    )
+                except (ValueError, OSError):
+                    pass
+
+    return AgentInfo(
+        name=agent_name,
+        status="unknown",
+        last_response=None,
+        minutes_ago=None,
+    )
 
 
 # API Endpoints
@@ -239,60 +311,66 @@ def scan_logs(limit: int = 20) -> list[LogEntry]:
 def get_health():
     """Health check endpoint."""
     uptime = time.time() - APP_START_TIME
-    return HealthResponse(status="healthy", uptime_seconds=round(uptime, 2), version="1.0.0")
+    return HealthResponse(
+        status="healthy",
+        uptime_seconds=round(uptime, 2),
+        version="1.0.0"
+    )
 
 
 @app.get("/api/projects", response_model=ProjectResponse)
 def get_projects():
     """Get all projects with .dev_status.json files."""
     projects = scan_projects()
-    return ProjectResponse(projects=projects, total=len(projects))
+    return ProjectResponse(
+        projects=projects,
+        timestamp=datetime.utcnow().isoformat()
+    )
 
 
 @app.get("/api/cronjobs", response_model=CronJobResponse)
 def get_cronjobs():
-    """Get cron job service statuses."""
-    service_names = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
-    services = []
+    """Get cron job service statuses using systemctl and journalctl."""
+    cronjobs = []
+    for service_name in CRONJOB_SERVICES:
+        cronjobs.append(get_cronjob_status(service_name))
 
-    for name in service_names:
-        info = get_systemctl_show(name)
-        services.append(
-            CronJobService(
-                name=name,
-                active_state=info.get("ActiveState", "unknown"),
-                sub_state=info.get("SubState", "unknown"),
-                load_state=info.get("LoadState", "unknown"),
-                unit_file=info.get("UnitFile"),
-            )
-        )
-
-    return CronJobResponse(services=services, total=len(services))
+    return CronJobResponse(
+        cronjobs=cronjobs,
+        timestamp=datetime.utcnow().isoformat()
+    )
 
 
 @app.get("/api/agents", response_model=AgentResponse)
 def get_agents():
     """Get agent statuses by polling Telegram Bot API."""
-    agent_names = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
-    agents = []
+    updates_data = poll_telegram_updates()
+    updates = updates_data.get("updates", [])
 
-    for name in agent_names:
-        result = poll_telegram_updates(name)
-        if "error" in result:
-            agents.append(AgentStatus(name=name, active=False, error=result["error"]))
-        else:
-            agents.append(AgentStatus(name=name, active=True, last_update=result.get("update")))
+    agents_info = []
+    for agent_name in AGENTS:
+        agents_info.append(get_agent_status(agent_name, updates))
 
-    return AgentResponse(agents=agents, total=len(agents))
+    return AgentResponse(
+        agents=agents_info,
+        timestamp=datetime.utcnow().isoformat()
+    )
 
 
 @app.get("/api/logs", response_model=LogResponse)
 def get_logs(limit: int = 20):
     """Get recent log files sorted by modification time."""
-    if limit < 1 or limit > 100:
+    if limit < 1:
         limit = 20
+    if limit > 100:
+        limit = 20
+
     logs = scan_logs(limit=limit)
-    return LogResponse(logs=logs, total=len(logs))
+    return LogResponse(
+        logs=logs,
+        count=len(logs),
+        timestamp=datetime.utcnow().isoformat()
+    )
 
 
 @app.get("/api/config", response_model=ConfigResponse)
@@ -308,5 +386,4 @@ def get_config():
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

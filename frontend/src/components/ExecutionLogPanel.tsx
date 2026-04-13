@@ -1,49 +1,56 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 
-export function ExecutionLogPanel() {
-  const { logs } = useDashboard();
+function ExecutionLogPanel() {
+  const { state } = useDashboard();
+  const { logs } = state;
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
+
+  const toggleExpand = (filename: string) => {
+    setExpandedLog((prev) => (prev === filename ? null : filename));
+  };
 
   return (
-    <div className="bg-secondary rounded-lg p-6 border border-slate-700">
-      <h2 className="text-lg font-semibold mb-4">執行 Log</h2>
+    <section className="bg-secondary rounded-lg p-6">
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <span>📜</span>
+        <span>執行 Log</span>
+      </h2>
+
       {logs.length === 0 ? (
         <p className="text-text-muted">暫無執行日誌</p>
       ) : (
-        <div className="space-y-3">
-          {logs.slice(0, 20).map((log) => (
-            <LogCard key={log.path} log={log} />
+        <div className="space-y-4">
+          {logs.map((log) => (
+            <div key={log.filename} className="bg-primary rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="font-medium text-lg">{log.filename}</h3>
+                  <p className="text-text-muted text-sm mt-1">
+                    {log.timestamp}
+                  </p>
+                </div>
+                <button
+                  onClick={() => toggleExpand(log.filename)}
+                  className="text-sm text-accent hover:text-blue-400 transition-colors"
+                >
+                  {expandedLog === log.filename ? '▼ 隱藏' : '▶ 展開'}
+                </button>
+              </div>
+
+              {expandedLog === log.filename && (
+                <div className="mt-3 bg-primary rounded border border-slate-700 p-3 overflow-x-auto">
+                  <pre className="text-xs text-text whitespace-pre-wrap font-mono">
+                    {JSON.stringify(log.content, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
-function LogCard({ log }: { log: { filename: string; timestamp: string; content: Record<string, unknown> } }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="border border-slate-600 rounded">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-slate-700/50 transition-colors"
-      >
-        <div>
-          <span className="font-medium text-sm">{log.filename}</span>
-          <span className="ml-3 text-text-muted text-xs">
-            {new Date(log.timestamp).toLocaleString('zh-TW')}
-          </span>
-        </div>
-        <span className="text-text-muted text-sm">
-          {expanded ? '▲' : '▼'}
-        </span>
-      </button>
-      {expanded && (
-        <pre className="px-4 py-3 bg-primary text-xs text-text overflow-x-auto font-mono whitespace-pre-wrap border-t border-slate-600">
-          {JSON.stringify(log.content, null, 2)}
-        </pre>
-      )}
-    </div>
-  );
-}
+export default ExecutionLogPanel;
