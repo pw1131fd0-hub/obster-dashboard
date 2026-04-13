@@ -1,18 +1,9 @@
 {
-  "stage": "prd",
+  "stage": "plan_pending",
   "iteration": 1,
-  "quality_score": 85,
-  "quality_details": {
-    "產品願景": 100,
-    "User_Story": 100,
-    "功能分級_P0_P1_P2": 100,
-    "非功能需求": 100,
-    "技術選型": 100,
-    "UI_UX_色彩計劃": 100,
-    "成功指標": 100
-  },
-  "completeness": 100,
-  "summary": "PRD.md 已建立，包含完整 7 項要件：產品願景、4 則 User Story、P0/P1/P2 功能分級、非功能需求（效能/可用性/擴展性/安全性）、技術選型表格、UI/UX 色彩計劃（含色碼）、4 項成功指標。所有項目內容均超過 50 字，無空白或「待補」狀態。",
-  "next_action": "PRD 審查通過（85 分），符合 prd 階段門檻。可根據 STATE_DECISION 決定是否進入 sa_sd 階段或繼續迭代。",
-  "updated_at": "2026-04-13T00:27:00Z"
+  "quality_score": 0,
+  "completeness": 0,
+  "summary": "PLAN.md 已寫入，請在 Notion 打勾「確認」",
+  "next_action": "老闆在 Notion 打勾「確認」後 Worker 就會繼續執行",
+  "updated_at": "2026-04-13T00:28:41.416Z"
 }
