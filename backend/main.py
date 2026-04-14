@@ -4,16 +4,22 @@ FastAPI application providing system monitoring endpoints.
 """
 
 import json
+import logging
 import os
 import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import requests
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Environment configuration
 PROJECTS_PATH = os.getenv("PROJECTS_PATH", "/home/crawd_user/project")
@@ -28,6 +34,11 @@ AGENTS = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
 CRONJOB_SERVICES = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
 
 # Pydantic Models
+
+
+class ErrorResponse(BaseModel):
+    detail: str
+    code: str
 
 
 class HealthResponse(BaseModel):
@@ -120,7 +131,14 @@ def get_systemctl_show(service_name: str) -> dict:
                     info[key] = value
             return info
         return {}
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+    except subprocess.TimeoutExpired:
+        logger.warning(f"TimeoutExpired: systemctl show {service_name}")
+        return {}
+    except FileNotFoundError:
+        logger.warning(f"FileNotFoundError: systemctl not found for {service_name}")
+        return {}
+    except Exception as e:
+        logger.error(f"Error getting systemctl show for {service_name}: {e}")
         return {}
 
 
@@ -136,13 +154,21 @@ def get_journalctl_logs(service_name: str, lines: int = 10) -> list[str]:
         if result.returncode == 0:
             return result.stdout.strip().split("\n")
         return []
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+    except subprocess.TimeoutExpired:
+        logger.warning(f"TimeoutExpired: journalctl {service_name}")
+        return []
+    except FileNotFoundError:
+        logger.warning(f"FileNotFoundError: journalctl not found for {service_name}")
+        return []
+    except Exception as e:
+        logger.error(f"Error getting journalctl logs for {service_name}: {e}")
         return []
 
 
 def poll_telegram_updates() -> dict:
     """Poll Telegram Bot API for updates."""
     if not TELEGRAM_BOT_TOKEN:
+        logger.info("TELEGRAM_BOT_TOKEN not configured, returning empty updates")
         return {}
 
     try:
@@ -153,10 +179,13 @@ def poll_telegram_updates() -> dict:
 
         if response.status_code == 200 and data.get("ok"):
             return {"updates": data.get("result", [])}
+        logger.warning(f"Telegram API returned non-ok status: {data.get('ok')}")
         return {}
-    except requests.RequestException:
+    except requests.RequestException as e:
+        logger.error(f"RequestException polling Telegram: {e}")
         return {}
-    except Exception:
+    except Exception as e:
+        logger.error(f"Error polling Telegram updates: {e}")
         return {}
 
 
@@ -166,35 +195,51 @@ def scan_projects() -> list[ProjectStatus]:
     projects_base = Path(PROJECTS_PATH)
 
     if not projects_base.exists():
+        logger.warning(f"PROJECTS_PATH does not exist: {PROJECTS_PATH}")
         return projects
 
-    for project_dir in projects_base.iterdir():
-        if not project_dir.is_dir():
-            continue
-        dev_status_path = project_dir / "docs" / ".dev_status.json"
-        if dev_status_path.exists():
-            try:
-                with open(dev_status_path, "r") as f:
-                    dev_status = json.load(f)
-                projects.append(
-                    ProjectStatus(
-                        name=project_dir.name,
-                        path=str(project_dir),
-                        stage=dev_status.get("stage"),
-                        iteration=dev_status.get("iteration"),
-                        quality_score=dev_status.get("quality_score"),
-                        blocking_errors=dev_status.get("blocking_errors", []),
-                        updated_at=dev_status.get("updated_at"),
+    try:
+        for project_dir in projects_base.iterdir():
+            if not project_dir.is_dir():
+                continue
+            dev_status_path = project_dir / "docs" / ".dev_status.json"
+            if dev_status_path.exists():
+                try:
+                    with open(dev_status_path, "r") as f:
+                        dev_status = json.load(f)
+                    projects.append(
+                        ProjectStatus(
+                            name=project_dir.name,
+                            path=str(project_dir),
+                            stage=dev_status.get("stage"),
+                            iteration=dev_status.get("iteration"),
+                            quality_score=dev_status.get("quality_score"),
+                            blocking_errors=dev_status.get("blocking_errors", []),
+                            updated_at=dev_status.get("updated_at"),
+                        )
                     )
-                )
-            except (json.JSONDecodeError, IOError, KeyError):
-                projects.append(
-                    ProjectStatus(
-                        name=project_dir.name,
-                        path=str(project_dir),
-                        blocking_errors=[],
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON decode error in {dev_status_path}: {e}")
+                    projects.append(
+                        ProjectStatus(
+                            name=project_dir.name,
+                            path=str(project_dir),
+                            blocking_errors=[],
+                        )
                     )
-                )
+                except IOError as e:
+                    logger.error(f"IO error reading {dev_status_path}: {e}")
+                    projects.append(
+                        ProjectStatus(
+                            name=project_dir.name,
+                            path=str(project_dir),
+                            blocking_errors=[],
+                        )
+                    )
+    except Exception as e:
+        logger.error(f"Error scanning projects directory: {e}")
+        raise HTTPException(status_code=500, detail=f"Error scanning projects: {str(e)}", code="PROJECT_SCAN_ERROR")
+
     return projects
 
 
@@ -203,39 +248,47 @@ def scan_logs(limit: int = 20) -> list[LogFile]:
     logs_path = Path(LOGS_PATH)
 
     if not logs_path.exists():
+        logger.warning(f"LOGS_PATH does not exist: {LOGS_PATH}")
         return []
 
-    log_files = list(logs_path.glob("*.json"))
-    file_times = []
-    for log_file in log_files:
-        try:
-            stat = log_file.stat()
-            file_times.append((stat.st_mtime, log_file))
-        except OSError:
-            continue
+    try:
+        log_files = list(logs_path.glob("*.json"))
+        file_times = []
+        for log_file in log_files:
+            try:
+                stat = log_file.stat()
+                file_times.append((stat.st_mtime, log_file))
+            except OSError as e:
+                logger.error(f"Error stating log file {log_file}: {e}")
+                continue
 
-    # Sort by mtime descending
-    file_times.sort(key=lambda x: x[0], reverse=True)
-    file_times = file_times[:limit]
+        # Sort by mtime descending
+        file_times.sort(key=lambda x: x[0], reverse=True)
+        file_times = file_times[:limit]
 
-    log_entries = []
-    for mtime, log_file in file_times:
-        content = None
-        try:
-            with open(log_file, "r") as f:
-                content = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
+        log_entries = []
+        for mtime, log_file in file_times:
+            content = None
+            try:
+                with open(log_file, "r") as f:
+                    content = json.load(f)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON decode error in log file {log_file}: {e}")
+            except IOError as e:
+                logger.error(f"IO error reading log file {log_file}: {e}")
 
-        log_entries.append(
-            LogFile(
-                filename=log_file.name,
-                path=str(log_file),
-                timestamp=datetime.fromtimestamp(mtime).isoformat(),
-                content=content,
+            log_entries.append(
+                LogFile(
+                    filename=log_file.name,
+                    path=str(log_file),
+                    timestamp=datetime.fromtimestamp(mtime).isoformat(),
+                    content=content,
+                )
             )
-        )
-    return log_entries
+        return log_entries
+    except Exception as e:
+        logger.error(f"Error scanning logs directory: {e}")
+        raise HTTPException(status_code=500, detail=f"Error scanning logs: {str(e)}", code="LOG_SCAN_ERROR")
 
 
 def get_cronjob_status(service_name: str) -> CronJobServiceStatus:
@@ -271,30 +324,34 @@ def get_agent_status(agent_name: str, updates: list) -> AgentInfo:
     now = datetime.utcnow()
 
     for update in updates:
-        message = update.get("message", {})
-        chat = message.get("chat", {})
-        username = chat.get("username", "")
+        try:
+            message = update.get("message", {})
+            chat = message.get("chat", {})
+            username = chat.get("username", "")
 
-        if username == agent_name:
-            date_str = message.get("date")
-            if date_str:
-                try:
-                    last_response = datetime.fromtimestamp(date_str)
-                    minutes_ago = int((now - last_response).total_seconds() / 60)
+            if username == agent_name:
+                date_str = message.get("date")
+                if date_str:
+                    try:
+                        last_response = datetime.fromtimestamp(date_str)
+                        minutes_ago = int((now - last_response).total_seconds() / 60)
 
-                    if minutes_ago >= TIMEOUT_MINUTES:
-                        agent_status = "unhealthy"
-                    else:
-                        agent_status = "healthy"
+                        if minutes_ago >= TIMEOUT_MINUTES:
+                            agent_status = "unhealthy"
+                        else:
+                            agent_status = "healthy"
 
-                    return AgentInfo(
-                        name=agent_name,
-                        status=agent_status,
-                        last_response=last_response.isoformat(),
-                        minutes_ago=minutes_ago,
-                    )
-                except (ValueError, OSError):
-                    pass
+                        return AgentInfo(
+                            name=agent_name,
+                            status=agent_status,
+                            last_response=last_response.isoformat(),
+                            minutes_ago=minutes_ago,
+                        )
+                    except (ValueError, OSError) as e:
+                        logger.error(f"Error parsing date for agent {agent_name}: {e}")
+        except Exception as e:
+            logger.error(f"Error processing update for agent {agent_name}: {e}")
+            continue
 
     return AgentInfo(
         name=agent_name,
@@ -310,77 +367,113 @@ def get_agent_status(agent_name: str, updates: list) -> AgentInfo:
 @app.get("/api/health", response_model=HealthResponse)
 def get_health():
     """Health check endpoint."""
-    uptime = time.time() - APP_START_TIME
-    return HealthResponse(
-        status="healthy",
-        uptime_seconds=round(uptime, 2),
-        version="1.0.0"
-    )
+    try:
+        uptime = time.time() - APP_START_TIME
+        return HealthResponse(
+            status="healthy",
+            uptime_seconds=round(uptime, 2),
+            version="1.0.0"
+        )
+    except Exception as e:
+        logger.error(f"Error in health endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="HEALTH_CHECK_ERROR")
 
 
 @app.get("/api/projects", response_model=ProjectResponse)
 def get_projects():
     """Get all projects with .dev_status.json files."""
-    projects = scan_projects()
-    return ProjectResponse(
-        projects=projects,
-        timestamp=datetime.utcnow().isoformat()
-    )
+    try:
+        projects = scan_projects()
+        return ProjectResponse(
+            projects=projects,
+            timestamp=datetime.utcnow().isoformat()
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in projects endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="PROJECTS_ERROR")
 
 
 @app.get("/api/cronjobs", response_model=CronJobResponse)
 def get_cronjobs():
     """Get cron job service statuses using systemctl and journalctl."""
-    cronjobs = []
-    for service_name in CRONJOB_SERVICES:
-        cronjobs.append(get_cronjob_status(service_name))
+    try:
+        cronjobs = []
+        for service_name in CRONJOB_SERVICES:
+            cronjobs.append(get_cronjob_status(service_name))
 
-    return CronJobResponse(
-        cronjobs=cronjobs,
-        timestamp=datetime.utcnow().isoformat()
-    )
+        return CronJobResponse(
+            cronjobs=cronjobs,
+            timestamp=datetime.utcnow().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Error in cronjobs endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="CRONJOBS_ERROR")
 
 
 @app.get("/api/agents", response_model=AgentResponse)
 def get_agents():
     """Get agent statuses by polling Telegram Bot API."""
-    updates_data = poll_telegram_updates()
-    updates = updates_data.get("updates", [])
+    try:
+        updates_data = poll_telegram_updates()
+        updates = updates_data.get("updates", [])
 
-    agents_info = []
-    for agent_name in AGENTS:
-        agents_info.append(get_agent_status(agent_name, updates))
+        agents_info = []
+        for agent_name in AGENTS:
+            agents_info.append(get_agent_status(agent_name, updates))
 
-    return AgentResponse(
-        agents=agents_info,
-        timestamp=datetime.utcnow().isoformat()
-    )
+        return AgentResponse(
+            agents=agents_info,
+            timestamp=datetime.utcnow().isoformat()
+        )
+    except Exception as e:
+        logger.error(f"Error in agents endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="AGENTS_ERROR")
 
 
 @app.get("/api/logs", response_model=LogResponse)
 def get_logs(limit: int = 20):
     """Get recent log files sorted by modification time."""
-    if limit < 1:
-        limit = 20
-    if limit > 100:
-        limit = 20
+    try:
+        if limit < 1:
+            limit = 1
+        if limit > 100:
+            limit = 100
 
-    logs = scan_logs(limit=limit)
-    return LogResponse(
-        logs=logs,
-        count=len(logs),
-        timestamp=datetime.utcnow().isoformat()
-    )
+        logs = scan_logs(limit=limit)
+        return LogResponse(
+            logs=logs,
+            count=len(logs),
+            timestamp=datetime.utcnow().isoformat()
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in logs endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="LOGS_ERROR")
 
 
 @app.get("/api/config", response_model=ConfigResponse)
 def get_config():
     """Get current environment configuration."""
-    return ConfigResponse(
-        PROJECTS_PATH=PROJECTS_PATH,
-        LOGS_PATH=LOGS_PATH,
-        TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN,
-        TIMEOUT_MINUTES=TIMEOUT_MINUTES,
+    try:
+        return ConfigResponse(
+            PROJECTS_PATH=PROJECTS_PATH,
+            LOGS_PATH=LOGS_PATH,
+            TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN,
+            TIMEOUT_MINUTES=TIMEOUT_MINUTES,
+        )
+    except Exception as e:
+        logger.error(f"Error in config endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="CONFIG_ERROR")
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "code": exc.code},
     )
 
 

@@ -1,6 +1,17 @@
+# Frontend-only build using node:20-alpine
+# Output to dist/ directory for manual deployment or further processing
+
 FROM node:20-alpine
+
 WORKDIR /app
-COPY frontend/package*.json ./
+
+# Copy frontend source files
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
-COPY frontend/ .
+
+COPY frontend/ ./
+
+# Build the frontend
 RUN npm run build
+
+# Output is in /app/dist
