@@ -1,5 +1,10 @@
 version: '3.8'
 
+# =============================================================================
+# obster-dashboard Docker Compose Configuration
+# Full stack: nginx (reverse proxy + static) + FastAPI backend
+# =============================================================================
+
 # ─── Networks ─────────────────────────────────────────────────────────────────
 networks:
   obster-network:
@@ -8,7 +13,7 @@ networks:
 # ─── Services ─────────────────────────────────────────────────────────────────
 services:
 
-  # ── nginx: static SPA + reverse proxy ────────────────────────────────────
+  # ── nginx: static SPA + reverse proxy ──────────────────────────────────────
   nginx:
     build:
       context: .
@@ -29,8 +34,14 @@ services:
     restart: unless-stopped
     networks:
       - obster-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
-  # ── backend: FastAPI / uvicorn ────────────────────────────────────────────
+  # ── backend: FastAPI / uvicorn ─────────────────────────────────────────────
   backend:
     build:
       context: ./backend
