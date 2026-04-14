@@ -1,3 +1,5 @@
+// API Response Types
+
 export interface Project {
   name: string;
   path: string;
@@ -15,7 +17,7 @@ export interface ProjectResponse {
 
 export interface CronJob {
   name: string;
-  status: 'active' | 'inactive' | 'failed' | 'error';
+  status: 'active' | 'inactive' | 'failed' | 'error' | 'timeout';
   last_run: string | null;
   exit_code: number | null;
   recent_logs: string[];
@@ -38,7 +40,7 @@ export interface AgentResponse {
   timestamp: string;
 }
 
-export interface LogEntry {
+export interface ExecutionLog {
   filename: string;
   path: string;
   timestamp: string;
@@ -46,7 +48,7 @@ export interface LogEntry {
 }
 
 export interface LogResponse {
-  logs: LogEntry[];
+  logs: ExecutionLog[];
   count: number;
   timestamp: string;
 }
@@ -57,25 +59,49 @@ export interface HealthResponse {
   version: string;
 }
 
-export interface ConfigResponse {
-  refresh_interval: number;
-  timeout_minutes: number;
-  agents: string[];
-}
+// Dashboard State Types
 
 export interface DashboardState {
   projects: Project[];
   cronjobs: CronJob[];
   agents: Agent[];
-  logs: LogEntry[];
-  config: ConfigResponse | null;
-  loading: boolean;
-  error: string | null;
-  lastUpdated: Date | null;
+  logs: ExecutionLog[];
+  loading: {
+    projects: boolean;
+    cronjobs: boolean;
+    agents: boolean;
+    logs: boolean;
+  };
+  errors: {
+    projects: string | null;
+    cronjobs: string | null;
+    agents: string | null;
+    logs: string | null;
+  };
+  lastUpdated: string | null;
 }
 
+// Action Types
+
 export type DashboardAction =
-  | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Partial<Omit<DashboardState, 'loading' | 'error' | 'lastUpdated'>> }
-  | { type: 'FETCH_ERROR'; error: string }
+  | { type: 'FETCH_PROJECTS_REQUEST' }
+  | { type: 'FETCH_PROJECTS_SUCCESS'; payload: Project[] }
+  | { type: 'FETCH_PROJECTS_ERROR'; payload: string }
+  | { type: 'FETCH_CRONJOBS_REQUEST' }
+  | { type: 'FETCH_CRONJOBS_SUCCESS'; payload: CronJob[] }
+  | { type: 'FETCH_CRONJOBS_ERROR'; payload: string }
+  | { type: 'FETCH_AGENTS_REQUEST' }
+  | { type: 'FETCH_AGENTS_SUCCESS'; payload: Agent[] }
+  | { type: 'FETCH_AGENTS_ERROR'; payload: string }
+  | { type: 'FETCH_LOGS_REQUEST' }
+  | { type: 'FETCH_LOGS_SUCCESS'; payload: ExecutionLog[] }
+  | { type: 'FETCH_LOGS_ERROR'; payload: string }
   | { type: 'SET_LAST_UPDATED' };
+
+// Stage colors mapping
+export const stageColors: Record<Project['stage'], string> = {
+  prd: 'bg-accent',
+  dev: 'bg-warning',
+  test: 'bg-orange-500',
+  security: 'bg-error',
+};

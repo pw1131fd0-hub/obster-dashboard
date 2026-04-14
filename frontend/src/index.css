@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom scrollbar styling */
+/* Custom scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -10,6 +10,7 @@
 
 ::-webkit-scrollbar-track {
   background: #1E293B;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -19,4 +20,20 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #64748b;
+}
+
+/* Monospace font for JSON content */
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Focus visible styles for accessibility */
+*:focus-visible {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+/* Alert role styling */
+[role="alert"] {
+  @apply border-l-4 border-error;
 }
