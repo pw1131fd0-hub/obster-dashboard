@@ -1,13 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { DashboardProvider } from './context/DashboardContext';
 import App from './App';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <DashboardProvider>
-      <App />
-    </DashboardProvider>
+    <App />
   </React.StrictMode>
 );
