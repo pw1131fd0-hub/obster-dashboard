@@ -250,14 +250,14 @@ def get_systemctl_show(service_name: str) -> dict[str, str]:
         raise
 
 
-def get_journalctl_logs(service_name: str, lines: int = 10) -> list[str]:
+def get_journalctl_logs(service_name: str, limit: int = 5) -> list[str]:
     """
     Run journalctl to get recent logs for a service.
     Returns list of log lines.
     """
     try:
         result = subprocess.run(
-            ["journalctl", "--since", "1 hour ago", "-u", service_name, "--no-pager", "-n", str(lines)],
+            ["journalctl", "--since", "1 hour ago", "-u", service_name, "--no-pager", "-n", str(limit)],
             capture_output=True,
             text=True,
             timeout=5,
