@@ -25,8 +25,8 @@ export function Header() {
         <div className="text-right hidden sm:block">
           <p className="text-text-muted text-xs uppercase tracking-wide">Last updated</p>
           <p className="text-text text-sm font-mono tabular-nums">
-            {state.lastRefresh
-              ? new Date(state.lastRefresh).toLocaleTimeString()
+            {state.lastUpdated
+              ? new Date(state.lastUpdated).toLocaleTimeString()
               : 'Never'}
           </p>
         </div>

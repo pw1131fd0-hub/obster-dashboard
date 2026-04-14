@@ -3,6 +3,7 @@ import type { DashboardState, DashboardAction, Project, CronJob, Agent, LogEntry
 
 interface DashboardContextType {
   state: DashboardState;
+  dispatch: React.Dispatch<DashboardAction>;
   fetchData: () => Promise<void>;
   refresh: () => void;
 }
@@ -117,7 +118,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [fetchData]);
 
   return (
-    <DashboardContext.Provider value={{ state, fetchData, refresh }}>
+    <DashboardContext.Provider value={{ state, dispatch, fetchData, refresh }}>
       {children}
     </DashboardContext.Provider>
   );
