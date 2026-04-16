@@ -41,7 +41,7 @@ export function ErrorBanner() {
             focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error
           "
         >
-          Retry
+          重新整理
         </button>
         <button
           type="button"

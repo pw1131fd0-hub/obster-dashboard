@@ -3,6 +3,5 @@ dist/
 __pycache__/
 *.pyc
 .env
-*.egg-info/
-.venv/.ralph/
-.ralph/
+.pytest_cache/
+*.egg-info/.ralph/

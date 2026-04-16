@@ -59,6 +59,13 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface APIError {
+  detail: string;
+  code: string;
+}
+
+export type ExecutionLog = LogEntry;
+
 export interface ConfigResponse {
   [key: string]: unknown;
 }
@@ -74,6 +81,7 @@ export interface DashboardState {
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
+  expandedLogs: string[];
 }
 
 // Action Types
@@ -83,7 +91,8 @@ export type DashboardAction =
   | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
   | { type: 'FETCH_ERROR'; error: string }
   | { type: 'SET_LAST_UPDATED' }
-  | { type: 'CLEAR_ERROR' };
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'TOGGLE_LOG'; filename: string };
 
 // Stage colors mapping
 export const stageColors: Record<Project['stage'], string> = {

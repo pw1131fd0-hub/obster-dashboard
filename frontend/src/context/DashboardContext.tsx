@@ -17,6 +17,7 @@ const initialState: DashboardState = {
   loading: true,
   error: null,
   lastUpdated: null,
+  expandedLogs: [],
 };
 
 function dashboardReducer(state: DashboardState, action: DashboardAction): DashboardState {
@@ -35,6 +36,15 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
       return { ...state, loading: false, error: action.error };
     case 'SET_LAST_UPDATED':
       return { ...state, lastUpdated: new Date() };
+    case 'TOGGLE_LOG': {
+      const expandedLogs = new Set(state.expandedLogs || []);
+      if (expandedLogs.has(action.filename)) {
+        expandedLogs.delete(action.filename);
+      } else {
+        expandedLogs.add(action.filename);
+      }
+      return { ...state, expandedLogs: Array.from(expandedLogs) };
+    }
     default:
       return state;
   }
