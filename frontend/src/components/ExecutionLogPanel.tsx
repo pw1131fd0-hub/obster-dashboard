@@ -1,46 +1,42 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 
-function LogEntryRow({ entry }: { entry: { filename: string; path: string; timestamp: string; content: string } }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="border border-[#334155] rounded p-3 mb-2">
-      <div className="flex flex-wrap items-center justify-between gap-2 cursor-pointer" onClick={() => setExpanded(!expanded)}>
-        <div>
-          <h4 className="font-medium text-[#F8FAFC]">{entry.filename}</h4>
-          <span className="text-sm text-[#94A3B8]">{entry.path}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-[#94A3B8]">{new Date(entry.timestamp).toLocaleString()}</span>
-          <span className="text-[#94A3B8]">{expanded ? '▲' : '▼'}</span>
-        </div>
-      </div>
-      {expanded && (
-        <div className="mt-3 p-3 bg-[#0F172A] rounded font-mono text-xs text-[#F8FAFC] overflow-x-auto whitespace-pre">
-          {entry.content}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function ExecutionLogPanel() {
+export default function ExecutionLogPanel() {
   const { state } = useDashboard();
-  const displayedLogs = state.logs.slice(0, 20);
+  const [expandedLog, setExpandedLog] = useState<number | null>(null);
+
+  const recentLogs = state.logs.slice(-20);
 
   return (
-    <div className="p-4">
-      <h2 className="text-lg font-semibold text-[#F8FAFC] mb-4">Execution Logs</h2>
-      {displayedLogs.length === 0 ? (
-        <p className="text-[#94A3B8]">No logs found</p>
+    <section className="bg-secondary rounded-lg p-4">
+      <h2 className="text-text font-semibold mb-4">Execution Logs</h2>
+      {recentLogs.length === 0 ? (
+        <p className="text-text-muted">No logs available</p>
       ) : (
-        <div className="max-h-96 overflow-y-auto">
-          {displayedLogs.map((entry, idx) => (
-            <LogEntryRow key={idx} entry={entry} />
+        <ul className="space-y-2">
+          {recentLogs.map((log, idx) => (
+            <li key={idx} className="border border-primary rounded">
+              <div
+                className="flex items-center justify-between p-2 cursor-pointer hover:bg-primary/50"
+                onClick={() => setExpandedLog(expandedLog === idx ? null : idx)}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-text text-sm font-mono">{log.filename}</span>
+                  <span className="text-text-muted text-xs">{log.timestamp}</span>
+                </div>
+                <span className="text-accent text-sm">
+                  {expandedLog === idx ? 'Collapse' : 'Expand'}
+                </span>
+              </div>
+              {expandedLog === idx && (
+                <pre className="bg-primary p-3 text-text-muted text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+                  {JSON.stringify(JSON.parse(log.content), null, 2)}
+                </pre>
+              )}
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </section>
   );
 }

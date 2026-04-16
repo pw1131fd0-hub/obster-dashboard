@@ -1,44 +1,46 @@
+import React from 'react';
 import { useDashboard } from '../context/DashboardContext';
 
-const statusBadgeColors: Record<string, string> = {
-  healthy: 'bg-[#22C55E] text-[#0F172A]',
-  unhealthy: 'bg-[#EF4444] text-[#F8FAFC]',
-  unknown: 'bg-[#94A3B8] text-[#0F172A]',
-  error: 'bg-[#EF4444] text-[#F8FAFC]',
+const statusColors: Record<string, string> = {
+  healthy: 'bg-success',
+  unhealthy: 'bg-error',
+  unknown: 'bg-gray-500',
 };
 
-export function AgentHealthPanel() {
+const agentOrder = ['Argus', 'Hephaestus', 'Atlas', 'Hestia', 'Hermes', 'Main'];
+
+export default function AgentHealthPanel() {
   const { state } = useDashboard();
 
+  const sortedAgents = [...state.agents].sort((a, b) => {
+    const aIdx = agentOrder.indexOf(a.name);
+    const bIdx = agentOrder.indexOf(b.name);
+    if (aIdx === -1 && bIdx === -1) return a.name.localeCompare(b.name);
+    if (aIdx === -1) return 1;
+    if (bIdx === -1) return -1;
+    return aIdx - bIdx;
+  });
+
   return (
-    <div className="p-4">
-      <h2 className="text-lg font-semibold text-[#F8FAFC] mb-4">Agent Health</h2>
-      {state.agents.length === 0 ? (
-        <p className="text-[#94A3B8]">No agents found</p>
+    <section className="bg-secondary rounded-lg p-4">
+      <h2 className="text-text font-semibold mb-4">Agent Health</h2>
+      {sortedAgents.length === 0 ? (
+        <p className="text-text-muted">No agents available</p>
       ) : (
-        <div className="space-y-4">
-          {state.agents.map((agent, idx) => (
-            <div key={idx} className="border border-[#334155] rounded p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-medium text-[#F8FAFC]">{agent.name}</h3>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${statusBadgeColors[agent.status] || 'bg-[#475569] text-[#F8FAFC]'}`}>
-                  {agent.status}
-                </span>
+        <ul className="space-y-3">
+          {sortedAgents.map((agent) => (
+            <li key={agent.name} className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className={`w-3 h-3 rounded-full ${statusColors[agent.status] || 'bg-gray-500'}`} />
+                <span className="text-text">{agent.name}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                <div>
-                  <span className="text-[#94A3B8]">Last Response: </span>
-                  <span className="text-[#F8FAFC]">{new Date(agent.last_response).toLocaleString()}</span>
-                </div>
-                <div>
-                  <span className="text-[#94A3B8]">Minutes Ago: </span>
-                  <span className="text-[#F8FAFC]">{agent.minutes_ago}</span>
-                </div>
-              </div>
-            </div>
+              <span className="text-text-muted text-sm">
+                {agent.last_seen_minutes_ago}m ago
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </section>
   );
 }

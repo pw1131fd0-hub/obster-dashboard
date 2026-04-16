@@ -1,72 +1,56 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 
 const statusColors: Record<string, string> = {
-  active: 'bg-[#22C55E] text-[#0F172A]',
-  inactive: 'bg-[#94A3B8] text-[#0F172A]',
-  failed: 'bg-[#EF4444] text-[#F8FAFC]',
-  error: 'bg-[#EF4444] text-[#F8FAFC]',
+  running: 'bg-yellow-500',
+  completed: 'bg-success',
+  failed: 'bg-error',
 };
 
-function LogToggle({ logs }: { logs: string[] }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="mt-2">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="text-sm text-[#3B82F6] hover:text-[#2563EB] focus:outline-none focus:underline"
-      >
-        {isOpen ? 'Hide Logs' : 'Show Logs'}
-      </button>
-      {isOpen && (
-        <div className="mt-2 p-2 bg-[#0F172A] rounded font-mono text-xs text-[#F8FAFC] max-h-32 overflow-y-auto">
-          {logs.slice(0, 5).map((log, i) => (
-            <div key={i} className="truncate">{log}</div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function CronJobPanel() {
+export default function CronJobPanel() {
   const { state } = useDashboard();
+  const [expandedJob, setExpandedJob] = useState<string | null>(null);
 
   return (
-    <div className="p-4">
-      <h2 className="text-lg font-semibold text-[#F8FAFC] mb-4">Cron Jobs</h2>
-      {state.cronjobs.length === 0 ? (
-        <p className="text-[#94A3B8]">No cron jobs found</p>
+    <section className="bg-secondary rounded-lg p-4">
+      <h2 className="text-text font-semibold mb-4">Cron Jobs</h2>
+      {state.cronJobs.length === 0 ? (
+        <p className="text-text-muted">No cron jobs available</p>
       ) : (
-        <div className="space-y-4">
-          {state.cronjobs.map((job, idx) => (
-            <div key={idx} className="border border-[#334155] rounded p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-medium text-[#F8FAFC]">{job.name}</h3>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${statusColors[job.status] || 'bg-[#475569] text-[#F8FAFC]'}`}>
-                  {job.status}
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
-                <div>
-                  <span className="text-[#94A3B8]">Last Run: </span>
-                  <span className="text-[#F8FAFC]">{new Date(job.last_run).toLocaleString()}</span>
+        <ul className="space-y-3">
+          {state.cronJobs.map((job) => (
+            <li key={job.id} className="border border-primary rounded p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`w-3 h-3 rounded-full ${statusColors[job.status] || 'bg-gray-500'}`} />
+                  <span className="text-text">{job.name}</span>
+                  <span className="text-text-muted text-sm">{job.schedule}</span>
                 </div>
-                <div>
-                  <span className="text-[#94A3B8]">Exit Code: </span>
-                  <span className={job.exit_code === 0 ? 'text-[#22C55E]' : 'text-[#EF4444]'}>
-                    {job.exit_code}
+                <div className="flex items-center gap-3">
+                  <span className={`text-sm ${job.last_exit_code === 0 ? 'text-success' : 'text-error'}`}>
+                    Exit: {job.last_exit_code}
                   </span>
+                  {job.recent_logs.length > 0 && (
+                    <button
+                      onClick={() => setExpandedJob(expandedJob === job.id ? null : job.id)}
+                      className="text-accent text-sm hover:underline"
+                    >
+                      {expandedJob === job.id ? 'Hide logs' : 'Show logs'}
+                    </button>
+                  )}
                 </div>
               </div>
-              {job.recent_logs.length > 0 && (
-                <LogToggle logs={job.recent_logs} />
+              {expandedJob === job.id && job.recent_logs.length > 0 && (
+                <div className="mt-3 bg-primary rounded p-2">
+                  <pre className="text-text-muted text-xs whitespace-pre-wrap">
+                    {job.recent_logs.slice(0, 5).join('\n')}
+                  </pre>
+                </div>
               )}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </section>
   );
 }

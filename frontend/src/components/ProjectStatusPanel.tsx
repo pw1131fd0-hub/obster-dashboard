@@ -1,64 +1,44 @@
+import React from 'react';
 import { useDashboard } from '../context/DashboardContext';
 
 const stageColors: Record<string, string> = {
-  prd: 'bg-[#3B82F6] text-[#F8FAFC]',
-  dev: 'bg-[#F59E0B] text-[#0F172A]',
-  test: 'bg-[#F97316] text-[#F8FAFC]',
-  security: 'bg-[#EF4444] text-[#F8FAFC]',
+  prd: 'bg-blue-500',
+  dev: 'bg-yellow-500',
+  test: 'bg-orange-500',
+  security: 'bg-red-500',
 };
 
-export function ProjectStatusPanel() {
+export default function ProjectStatusPanel() {
   const { state } = useDashboard();
 
   return (
-    <div className="p-4">
-      <h2 className="text-lg font-semibold text-[#F8FAFC] mb-4">Project Status</h2>
+    <section className="bg-secondary rounded-lg p-4">
+      <h2 className="text-text font-semibold mb-4">Project Status</h2>
       {state.projects.length === 0 ? (
-        <p className="text-[#94A3B8]">No projects found</p>
+        <p className="text-text-muted">No projects available</p>
       ) : (
-        <div className="space-y-4">
+        <ul className="space-y-3">
           {state.projects.map((project, idx) => (
-            <div key={idx} className="border border-[#334155] rounded p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <h3 className="font-medium text-[#F8FAFC]">{project.name}</h3>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${stageColors[project.stage] || 'bg-[#475569] text-[#F8FAFC]'}`}>
-                  {project.stage.toUpperCase()}
+            <li key={idx} className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-text">{project.name}</span>
+                <span className={`${stageColors[project.stage] || 'bg-gray-500'} text-white text-xs px-2 py-1 rounded uppercase`}>
+                  {project.stage}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-[#94A3B8]">Path: </span>
-                  <span className="text-[#F8FAFC]">{project.path}</span>
-                </div>
-                <div>
-                  <span className="text-[#94A3B8]">Iteration: </span>
-                  <span className="text-[#F8FAFC]">{project.iteration}</span>
-                </div>
-                <div>
-                  <span className="text-[#94A3B8]">Quality Score: </span>
-                  <span className={project.quality_score < 85 ? 'text-[#EF4444]' : 'text-[#22C55E]'}>
-                    {project.quality_score}%
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[#94A3B8]">Updated: </span>
-                  <span className="text-[#F8FAFC]">{new Date(project.updated_at).toLocaleString()}</span>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-text-muted">Score:</span>
+                <span className={`font-medium ${project.quality_score < 85 ? 'text-error' : 'text-success'}`}>
+                  {project.quality_score}
+                </span>
+                {project.quality_score < 85 && (
+                  <span className="text-error text-sm" title="Quality score below threshold">!</span>
+                )}
               </div>
-              {project.blocking_errors.length > 0 && (
-                <div className="mt-2 p-2 bg-[#EF4444]/10 border border-[#EF4444] rounded">
-                  <p className="text-sm font-medium text-[#EF4444] mb-1">Blocking Errors:</p>
-                  <ul className="list-disc list-inside text-sm text-[#F8FAFC]">
-                    {project.blocking_errors.map((err, i) => (
-                      <li key={i}>{err}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
-    </div>
+    </section>
   );
 }

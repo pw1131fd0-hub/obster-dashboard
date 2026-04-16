@@ -1,46 +1,63 @@
+export interface ProjectResponse {
+  projects: Project[];
+}
+
 export interface Project {
   name: string;
-  path: string;
   stage: 'prd' | 'dev' | 'test' | 'security';
-  iteration: number;
   quality_score: number;
-  blocking_errors: string[];
-  updated_at: string;
+}
+
+export interface CronJobResponse {
+  cron_jobs: CronJob[];
 }
 
 export interface CronJob {
+  id: string;
   name: string;
-  status: 'active' | 'inactive' | 'failed' | 'error';
+  schedule: string;
   last_run: string;
-  exit_code: number;
+  last_exit_code: number;
+  status: 'running' | 'completed' | 'failed';
   recent_logs: string[];
+}
+
+export interface AgentResponse {
+  agents: Agent[];
 }
 
 export interface Agent {
   name: string;
-  status: 'healthy' | 'unhealthy' | 'unknown' | 'error';
-  last_response: string;
-  minutes_ago: number;
+  status: 'healthy' | 'unhealthy' | 'unknown';
+  last_seen_minutes_ago: number;
 }
 
-export interface LogEntry {
-  filename: string;
-  path: string;
+export interface LogResponse {
+  logs: Log[];
+}
+
+export interface Log {
   timestamp: string;
+  filename: string;
   content: string;
+}
+
+export interface HealthResponse {
+  status: string;
+  timestamp: string;
 }
 
 export interface DashboardState {
   projects: Project[];
-  cronjobs: CronJob[];
+  cronJobs: CronJob[];
   agents: Agent[];
-  logs: LogEntry[];
-  loading: boolean;
+  logs: Log[];
+  lastUpdated: string | null;
   error: string | null;
-  lastUpdated: Date | null;
+  loading: boolean;
 }
 
 export type DashboardAction =
   | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Omit<DashboardState, 'loading' | 'error'> }
+  | { type: 'FETCH_SUCCESS'; payload: Omit<DashboardState, 'error' | 'loading'> }
   | { type: 'FETCH_ERROR'; payload: string };
