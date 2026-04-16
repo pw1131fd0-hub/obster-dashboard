@@ -5,14 +5,15 @@ import { DashboardProvider } from '../context/DashboardContext';
 
 /**
  * URL-aware fetch mock returning empty-state API responses for all four
- * dashboard endpoints.  Call in beforeEach so every test gets a fresh mock.
+ * dashboard endpoints. Call in beforeEach so every test gets a fresh mock.
  */
 export function setupFetchMock(overrides: Record<string, unknown> = {}) {
   const defaults: Record<string, unknown> = {
     '/api/projects': { projects: [] },
     '/api/cronjobs': { cronjobs: [] },
-    '/api/agents':   { agents: [] },
-    '/api/logs':     { logs: [], count: 0 },
+    '/api/agents': { agents: [] },
+    '/api/logs': { logs: [], count: 0 },
+    '/api/config': {},
   };
 
   const responses = { ...defaults, ...overrides };
@@ -31,7 +32,5 @@ export function setupFetchMock(overrides: Record<string, unknown> = {}) {
 
 /** Renders a component wrapped in the DashboardProvider context. */
 export function renderWithProvider(ui: React.ReactElement) {
-  return render(
-    <DashboardProvider>{ui}</DashboardProvider>,
-  );
+  return render(<DashboardProvider>{ui}</DashboardProvider>);
 }
