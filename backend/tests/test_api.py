@@ -5,6 +5,7 @@ Tests use mocking to isolate from filesystem and subprocess operations.
 
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,6 +13,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+
+# Ensure parent directory is in path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Set environment variables before importing app
 os.environ["PROJECTS_PATH"] = "/tmp/test_projects"
@@ -23,8 +27,8 @@ os.environ["TIMEOUT_MINUTES"] = "30"
 @pytest.fixture(scope="module")
 def client():
     """Create test client with mocked time."""
-    from main import app
-    return TestClient(app)
+    import main
+    return TestClient(main.app)
 
 
 @pytest.fixture
