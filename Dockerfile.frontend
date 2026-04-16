@@ -1,35 +1,6 @@
-# =============================================================================
-# Frontend-only build using node:20-alpine
-# Output to dist/ directory for manual deployment or further processing
-# =============================================================================
-FROM node:20-alpine AS frontend-builder
-
-WORKDIR /app
-
-# Copy package files first for better layer caching
-COPY frontend/package.json frontend/package-lock.json* ./
-
-# Install dependencies with npm ci for reproducible builds
-RUN npm ci
-
-# Copy frontend source code
+FROM node:20-alpine
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
 COPY frontend/ ./
-
-# Build the frontend with Vite
 RUN npm run build
-
-# =============================================================================
-# Output stage - copy dist for artifact extraction
-# =============================================================================
-FROM alpine:latest AS output
-
-WORKDIR /output
-
-COPY --from=frontend-builder /app/dist ./dist
-
-# Create a tarball of the dist directory for easy artifact extraction
-RUN tar -czf frontend-dist.tar.gz dist/
-
-# Final stage: scratch image with just the tarball artifact
-FROM scratch
-COPY --from=output /output/frontend-dist.tar.gz /
