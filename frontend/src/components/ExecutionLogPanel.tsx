@@ -1,56 +1,46 @@
 import { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 
-function ExecutionLogPanel() {
-  const { state } = useDashboard();
-  const { logs } = state;
-  const [expandedLog, setExpandedLog] = useState<string | null>(null);
-
-  const toggleExpand = (filename: string) => {
-    setExpandedLog((prev) => (prev === filename ? null : filename));
-  };
+function LogEntryRow({ entry }: { entry: { filename: string; path: string; timestamp: string; content: string } }) {
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <section className="bg-secondary rounded-lg p-6">
-      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-        <span>📜</span>
-        <span>執行 Log</span>
-      </h2>
-
-      {logs.length === 0 ? (
-        <p className="text-text-muted">暫無執行日誌</p>
-      ) : (
-        <div className="space-y-4">
-          {logs.map((log) => (
-            <div key={log.filename} className="bg-primary rounded-lg p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-medium text-lg">{log.filename}</h3>
-                  <p className="text-text-muted text-sm mt-1">
-                    {log.timestamp}
-                  </p>
-                </div>
-                <button
-                  onClick={() => toggleExpand(log.filename)}
-                  className="text-sm text-accent hover:text-blue-400 transition-colors"
-                >
-                  {expandedLog === log.filename ? '▼ 隱藏' : '▶ 展開'}
-                </button>
-              </div>
-
-              {expandedLog === log.filename && (
-                <div className="mt-3 bg-primary rounded border border-slate-700 p-3 overflow-x-auto">
-                  <pre className="text-xs text-text whitespace-pre-wrap font-mono">
-                    {JSON.stringify(log.content, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          ))}
+    <div className="border border-[#334155] rounded p-3 mb-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <div>
+          <h4 className="font-medium text-[#F8FAFC]">{entry.filename}</h4>
+          <span className="text-sm text-[#94A3B8]">{entry.path}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-[#94A3B8]">{new Date(entry.timestamp).toLocaleString()}</span>
+          <span className="text-[#94A3B8]">{expanded ? '▲' : '▼'}</span>
+        </div>
+      </div>
+      {expanded && (
+        <div className="mt-3 p-3 bg-[#0F172A] rounded font-mono text-xs text-[#F8FAFC] overflow-x-auto whitespace-pre">
+          {entry.content}
         </div>
       )}
-    </section>
+    </div>
   );
 }
 
-export default ExecutionLogPanel;
+export function ExecutionLogPanel() {
+  const { state } = useDashboard();
+  const displayedLogs = state.logs.slice(0, 20);
+
+  return (
+    <div className="p-4">
+      <h2 className="text-lg font-semibold text-[#F8FAFC] mb-4">Execution Logs</h2>
+      {displayedLogs.length === 0 ? (
+        <p className="text-[#94A3B8]">No logs found</p>
+      ) : (
+        <div className="max-h-96 overflow-y-auto">
+          {displayedLogs.map((entry, idx) => (
+            <LogEntryRow key={idx} entry={entry} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
