@@ -14,7 +14,7 @@ const stageLabels: Record<string, string> = {
   security: 'SECURITY',
 };
 
-function ProjectStatusPanel() {
+export function ProjectStatusPanel() {
   const { state } = useDashboard();
   const { projects } = state;
 
