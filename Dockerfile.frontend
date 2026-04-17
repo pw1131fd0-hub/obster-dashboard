@@ -1,21 +1,7 @@
-# =============================================================================
-# Frontend-only build - Node 20 Alpine
-# Builds the React frontend and outputs dist/
-# =============================================================================
 FROM node:20-alpine
-
-WORKDIR /app/frontend
-
-# Copy package files first for better layer caching
-COPY frontend/package.json frontend/package-lock.json* ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy frontend source
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm install
 COPY frontend/ .
-
-# Build the frontend (Vite production build)
-RUN npm run build
-
-# Output is in /app/frontend/dist
+EXPOSE 5173
+CMD ["npm", "run", "dev"]
