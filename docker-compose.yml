@@ -31,7 +31,7 @@ services:
       # Project sources for status scanning
       - ${PROJECTS_PATH:-/home/crawd_user/project}:/home/crawd_user/project:ro
       # Execution logs for log panel
-      - ${LOGS_PATH:-/home/crawd_user/.openclaw/workspace/logs}:/home/crawd_user/.openclaw/workspace/logs:ro
+      - ${LOGS_PATH:-/home/crawd_user/.openclaw/workspace/logs/executions}:/home/crawd_user/.openclaw/workspace/logs/executions:ro
       # Systemd sockets for cronjob monitoring
       - /var/run/dbus:/var/run/dbus:ro
       - /run/systemd:/run/systemd:ro
