@@ -25,7 +25,7 @@ export function CronJobPanel() {
   };
 
   return (
-    <section className="bg-secondary rounded-lg p-4 h-full">
+    <section className="bg-secondary rounded-lg p-4 h-full shadow-lg">
       <h2 className="text-lg font-semibold mb-4 text-text">Cron Job Monitor</h2>
       {loading && cronjobs.length === 0 ? (
         <div className="flex items-center justify-center h-32">

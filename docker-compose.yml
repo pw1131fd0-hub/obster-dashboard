@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   nginx:
     build:
@@ -12,6 +13,8 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     restart: unless-stopped
+    networks:
+      - obster-network
 
   backend:
     build:
@@ -31,3 +34,9 @@ services:
       - TIMEOUT_MINUTES=30
     restart: unless-stopped
     privileged: true
+    networks:
+      - obster-network
+
+networks:
+  obster-network:
+    driver: bridge
