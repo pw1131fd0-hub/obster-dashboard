@@ -22,7 +22,7 @@ export TIMEOUT_MINUTES="${TIMEOUT_MINUTES:-30}"
 # Start backend with uvicorn
 echo "Starting backend on port $BACKEND_PORT..."
 cd "$BACKEND_DIR"
-uvicorn main:app --host 0.0.0.0 --port "$BACKEND_PORT" &
+uvicorn main:app --reload --host 0.0.0.0 --port "$BACKEND_PORT" &
 BACKEND_PID=$!
 
 # Start frontend dev server with vite
