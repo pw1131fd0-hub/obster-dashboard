@@ -157,8 +157,7 @@ def get_timestamp() -> str:
 
 def get_uptime_seconds() -> float:
     """Calculate uptime in seconds"""
-    delta = datetime.now(timezone.utc).timestamp() - APP_START_TIME
-    return round(delta, 2)
+    return round(time.time() - APP_START_TIME, 2)
 
 
 # =============================================================================
