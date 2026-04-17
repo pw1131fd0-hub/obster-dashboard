@@ -52,22 +52,22 @@ export interface LogResponse {
 }
 
 export interface HealthResponse {
-  status: string;
+  status: 'healthy' | 'unhealthy';
   uptime_seconds: number;
   version: string;
 }
 
-export interface DashboardState {
+export interface DashboardData {
   projects: Project[];
-  cronJobs: CronJob[];
+  cronjobs: CronJob[];
   agents: Agent[];
   logs: LogEntry[];
-  loading: boolean;
-  error: string | null;
-  lastUpdated: string | null;
 }
 
-export type DashboardAction =
-  | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Omit<DashboardState, 'loading' | 'error'> }
-  | { type: 'FETCH_ERROR'; payload: string };
+export type DashboardStatus = 'loading' | 'success' | 'error';
+
+export interface DashboardState extends DashboardData {
+  loading: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+}

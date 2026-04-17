@@ -14,7 +14,7 @@ RUN npm ci
 # Copy frontend source
 COPY frontend/ .
 
-# Build the frontend
+# Build the frontend (Vite production build)
 RUN npm run build
 
 # =============================================================================

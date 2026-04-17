@@ -30,7 +30,7 @@ echo ""
 show_usage() {
     echo "Usage: $0 [dev|production]"
     echo ""
-    echo "  dev         - Start backend (uvicorn) and nginx locally"
+    echo "  dev         - Start backend (uvicorn) and frontend (vite) locally"
     echo "  production  - Start docker-compose in production mode"
     echo ""
     echo "Environment variables:"
@@ -42,16 +42,21 @@ show_usage() {
     echo ""
 }
 
+check_docker() {
+    if ! command -v docker &> /dev/null; then
+        echo "[ERROR] docker is not installed"
+        exit 1
+    fi
+    if ! docker info &> /dev/null; then
+        echo "[ERROR] docker daemon is not running"
+        exit 1
+    fi
+}
+
 start_dev_mode() {
     echo "[INFO] Starting in DEVELOPMENT mode..."
 
-    # Check for nginx
-    if ! command -v nginx &> /dev/null; then
-        echo "[ERROR] nginx is not installed"
-        exit 1
-    fi
-
-    # Check for python and uvicorn
+    # Check for python3 and uvicorn
     if ! command -v python3 &> /dev/null; then
         echo "[ERROR] python3 is not installed"
         exit 1
@@ -75,6 +80,26 @@ start_dev_mode() {
         pip install -q -r backend/requirements.txt
     fi
 
+    # Check for node and npm
+    if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
+        echo "[ERROR] node/npm is not installed"
+        exit 1
+    fi
+
+    # Check if frontend directory exists
+    if [[ ! -d "frontend" ]]; then
+        echo "[ERROR] frontend directory not found!"
+        exit 1
+    fi
+
+    # Install frontend dependencies if node_modules doesn't exist
+    if [[ ! -d "frontend/node_modules" ]]; then
+        echo "[INFO] Installing frontend dependencies..."
+        cd frontend
+        npm install
+        cd ..
+    fi
+
     # Start FastAPI backend on port 8000
     echo "[INFO] Starting FastAPI backend on port 8000..."
     cd backend
@@ -85,19 +110,27 @@ start_dev_mode() {
     # Wait a moment for backend to start
     sleep 2
 
-    # Start nginx on port 80 in foreground
-    echo "[INFO] Starting nginx on port 80..."
-    nginx -c "$SCRIPT_DIR/nginx.dev.conf" -g "daemon off;" &
-    NGINX_PID=$!
+    # Check if backend started successfully
+    if ! kill -0 $BACKEND_PID 2>/dev/null; then
+        echo "[ERROR] Backend failed to start"
+        exit 1
+    fi
+
+    # Start Vite dev server on port 5173
+    echo "[INFO] Starting Vite dev server on port 5173..."
+    cd frontend
+    npm run dev -- --host 0.0.0.0 &
+    VITE_PID=$!
+    cd ..
 
     echo ""
     echo "[INFO] All services started."
     echo "[INFO] Backend (FastAPI): PID $BACKEND_PID"
-    echo "[INFO] Frontend (nginx):  PID $NGINX_PID"
+    echo "[INFO] Frontend (Vite):   PID $VITE_PID"
     echo ""
     echo "[INFO] Backend API:  http://localhost:8000"
     echo "[INFO] API Docs:     http://localhost:8000/docs"
-    echo "[INFO] Frontend:      http://localhost:80"
+    echo "[INFO] Frontend:     http://localhost:5173"
     echo ""
     echo "Press Ctrl+C to stop all services"
     echo ""
@@ -107,7 +140,7 @@ start_dev_mode() {
         echo ""
         echo "[INFO] Shutting down services..."
         kill $BACKEND_PID 2>/dev/null || true
-        kill $NGINX_PID 2>/dev/null || true
+        kill $VITE_PID 2>/dev/null || true
         echo "[INFO] All services stopped."
         exit 0
     }
@@ -115,20 +148,29 @@ start_dev_mode() {
     trap cleanup SIGTERM SIGINT
 
     # Wait for both background processes
-    wait $BACKEND_PID $NGINX_PID
+    wait $BACKEND_PID $VITE_PID
 }
 
 start_production_mode() {
     echo "[INFO] Starting in PRODUCTION mode..."
 
-    if ! command -v docker-compose &> /dev/null && ! command -v docker &> /dev/null; then
-        echo "[ERROR] docker-compose is not installed"
-        exit 1
-    fi
+    check_docker
 
     # Check if docker-compose.yml exists
     if [[ ! -f "$SCRIPT_DIR/docker-compose.yml" ]]; then
         echo "[ERROR] docker-compose.yml not found!"
+        exit 1
+    fi
+
+    # Check if Dockerfile exists
+    if [[ ! -f "$SCRIPT_DIR/Dockerfile" ]]; then
+        echo "[ERROR] Dockerfile not found!"
+        exit 1
+    fi
+
+    # Check if backend/Dockerfile exists
+    if [[ ! -f "$SCRIPT_DIR/backend/Dockerfile" ]]; then
+        echo "[ERROR] backend/Dockerfile not found!"
         exit 1
     fi
 
