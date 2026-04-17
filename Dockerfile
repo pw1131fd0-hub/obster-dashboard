@@ -12,9 +12,6 @@ COPY frontend/ ./
 # Build the frontend with Vite production build
 RUN npm run build
 
-# Copy dist to /app/frontend/dist
-RUN mkdir -p /app/frontend/dist && cp -r dist/* /app/frontend/dist/
-
 # Stage 2: nginx:alpine as final image
 FROM nginx:alpine
 
