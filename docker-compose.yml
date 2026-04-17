@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   nginx:
     build:
@@ -12,13 +13,14 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     restart: unless-stopped
+    privileged: true
     depends_on:
       - backend
 
   backend:
     build:
       context: .
-      dockerfile: backend/Dockerfile
+      dockerfile: Dockerfile.backend
     ports:
       - "8000:8000"
     volumes:

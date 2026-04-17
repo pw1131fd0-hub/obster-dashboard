@@ -1,31 +1,42 @@
 #!/bin/bash
 set -e
 
-echo "Starting Obster Dashboard in dev mode..."
+# Development mode startup script
+# Starts both backend (uvicorn) and frontend dev server (vite)
 
-# Get the directory where this script resides
+BACKEND_PORT=8000
+FRONTEND_PORT=5173
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BACKEND_DIR="$SCRIPT_DIR/backend"
+FRONTEND_DIR="$SCRIPT_DIR/frontend"
 
-# Install backend dependencies if needed
-cd "$SCRIPT_DIR/backend"
-if [ ! -d "venv" ] && [ -f requirements.txt ]; then
-    echo "Installing backend dependencies..."
-    pip install -r requirements.txt
-fi
+echo "Starting Obster Dashboard in development mode..."
 
-# Start backend
-echo "Starting backend on port 8000..."
-uvicorn main:app --host 0.0.0.0 --port 8000 &
+# Set environment defaults
+export PROJECTS_PATH="${PROJECTS_PATH:-/home/crawd_user/project}"
+export LOGS_PATH="${LOGS_PATH:-/home/crawd_user/.openclaw/workspace/logs/executions}"
+export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+export TIMEOUT_MINUTES="${TIMEOUT_MINUTES:-30}"
+
+# Start backend with uvicorn
+echo "Starting backend on port $BACKEND_PORT..."
+cd "$BACKEND_DIR"
+uvicorn main:app --host 0.0.0.0 --port "$BACKEND_PORT" &
 BACKEND_PID=$!
 
-# Start frontend dev server
-cd "$SCRIPT_DIR/frontend"
-echo "Starting frontend dev server on port 5173..."
-npm run dev -- --host 0.0.0.0 --port 5173 &
+# Start frontend dev server with vite
+echo "Starting frontend dev server on port $FRONTEND_PORT..."
+cd "$FRONTEND_DIR"
+npm run dev -- --host 0.0.0.0 --port "$FRONTEND_PORT" &
 FRONTEND_PID=$!
 
-echo "Both services started. Backend PID: $BACKEND_PID, Frontend PID: $FRONTEND_PID"
-echo "Press Ctrl+C to stop all services."
+echo ""
+echo "Development servers running:"
+echo "  Backend API: http://localhost:$BACKEND_PORT"
+echo "  Frontend:    http://localhost:$FRONTEND_PORT"
+echo ""
+echo "Press Ctrl+C to stop both servers."
 
 # Cleanup on exit
 cleanup() {
@@ -36,5 +47,5 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM
 
-# Wait for any process to exit
-wait
+# Wait for either process to exit
+wait $BACKEND_PID $FRONTEND_PID
