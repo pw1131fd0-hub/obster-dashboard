@@ -19,7 +19,3 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }
-
-body {
-  @apply bg-primary text-text;
-}

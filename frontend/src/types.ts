@@ -59,15 +59,15 @@ export interface HealthResponse {
 
 export interface DashboardState {
   projects: Project[];
-  cronjobs: CronJob[];
+  cronJobs: CronJob[];
   agents: Agent[];
   logs: LogEntry[];
   loading: boolean;
   error: string | null;
-  lastUpdated: Date | null;
+  lastUpdated: string | null;
 }
 
 export type DashboardAction =
   | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Partial<Omit<DashboardState, 'loading' | 'error' | 'lastUpdated'>> }
+  | { type: 'FETCH_SUCCESS'; payload: Omit<DashboardState, 'loading' | 'error'> }
   | { type: 'FETCH_ERROR'; payload: string };

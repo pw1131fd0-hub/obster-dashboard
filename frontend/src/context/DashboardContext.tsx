@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import type { DashboardState, DashboardAction, Project, CronJob, Agent, Log } from '../types';
+import type { DashboardState, DashboardAction, Project, CronJob, Agent, LogEntry } from '../types';
 
 const initialState: DashboardState = {
   projects: [],
   cronJobs: [],
   agents: [],
   logs: [],
-  lastUpdated: null,
-  error: null,
   loading: false,
+  error: null,
+  lastUpdated: null,
 };
 
 function dashboardReducer(state: DashboardState, action: DashboardAction): DashboardState {
@@ -40,24 +40,26 @@ interface DashboardContextType {
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const REFRESH_INTERVAL = 30000;
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
   const fetchData = useCallback(async () => {
     dispatch({ type: 'FETCH_START' });
+
     try {
       const [projectsRes, cronJobsRes, agentsRes, logsRes] = await Promise.all([
-        fetch(`${API_BASE}/projects`).catch(() => null),
-        fetch(`${API_BASE}/cronjobs`).catch(() => null),
-        fetch(`${API_BASE}/agents`).catch(() => null),
-        fetch(`${API_BASE}/logs`).catch(() => null),
+        fetch(`${API_BASE_URL}/projects`).catch(() => null),
+        fetch(`${API_BASE_URL}/cronjobs`).catch(() => null),
+        fetch(`${API_BASE_URL}/agents`).catch(() => null),
+        fetch(`${API_BASE_URL}/logs`).catch(() => null),
       ]);
 
-      const [projects, cronJobs, agents, logs] = await Promise.all([
+      const [projectsData, cronJobsData, agentsData, logsData] = await Promise.all([
         projectsRes?.json().catch(() => ({ projects: [] })),
-        cronJobsRes?.json().catch(() => ({ cron_jobs: [] })),
+        cronJobsRes?.json().catch(() => ({ cronjobs: [] })),
         agentsRes?.json().catch(() => ({ agents: [] })),
         logsRes?.json().catch(() => ({ logs: [] })),
       ]);
@@ -65,21 +67,24 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       dispatch({
         type: 'FETCH_SUCCESS',
         payload: {
-          projects: (projects as { projects: Project[] }).projects || [],
-          cronJobs: (cronJobs as { cron_jobs: CronJob[] }).cron_jobs || [],
-          agents: (agents as { agents: Agent[] }).agents || [],
-          logs: (logs as { logs: Log[] }).logs || [],
+          projects: (projectsData as { projects: Project[] }).projects || [],
+          cronJobs: (cronJobsData as { cronjobs: CronJob[] }).cronjobs || [],
+          agents: (agentsData as { agents: Agent[] }).agents || [],
+          logs: (logsData as { logs: LogEntry[] }).logs || [],
           lastUpdated: new Date().toISOString(),
         },
       });
     } catch (err) {
-      dispatch({ type: 'FETCH_ERROR', payload: err instanceof Error ? err.message : 'Failed to fetch data' });
+      dispatch({
+        type: 'FETCH_ERROR',
+        payload: err instanceof Error ? err.message : 'Failed to fetch data',
+      });
     }
   }, []);
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -90,9 +95,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useDashboard() {
+export function useDashboard(): DashboardContextType {
   const context = useContext(DashboardContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useDashboard must be used within a DashboardProvider');
   }
   return context;

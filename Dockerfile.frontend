@@ -1,4 +1,5 @@
-FROM node:20-alpine
+# Frontend-only build stage with Vite
+FROM node:20-alpine AS builder
 
 WORKDIR /app/frontend
 
@@ -9,9 +10,27 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 
 # Copy frontend source
-COPY frontend/ .
+COPY frontend/ ./
 
-# Build frontend with Vite
+# Build production bundle
 RUN npm run build
 
-# Output is in /app/frontend/dist
+# Production-like environment for serving
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install serve to host static files
+RUN npm install -g serve
+
+# Copy built assets from builder stage
+COPY --from=builder /app/frontend/dist ./dist
+
+# Expose port 3000 (default for serve)
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
+
+CMD ["serve", "-s", "dist", "-l", "3000"]

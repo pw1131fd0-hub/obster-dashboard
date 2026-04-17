@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   nginx:
     build:
@@ -12,6 +13,8 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     restart: unless-stopped
+    depends_on:
+      - backend
 
   backend:
     build:
