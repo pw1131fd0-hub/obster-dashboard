@@ -35,7 +35,7 @@ export default function AgentHealthPanel() {
                 <span className="text-text">{agent.name}</span>
               </div>
               <span className="text-text-muted text-sm">
-                {agent.last_seen_minutes_ago}m ago
+                {agent.minutes_ago != null ? `${agent.minutes_ago}m ago` : 'N/A'}
               </span>
             </li>
           ))}

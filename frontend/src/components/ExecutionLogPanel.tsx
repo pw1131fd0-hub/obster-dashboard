@@ -30,7 +30,7 @@ export default function ExecutionLogPanel() {
               </div>
               {expandedLog === idx && (
                 <pre className="bg-primary p-3 text-text-muted text-xs font-mono overflow-x-auto whitespace-pre-wrap">
-                  {JSON.stringify(JSON.parse(log.content), null, 2)}
+                  {JSON.stringify(log.content, null, 2)}
                 </pre>
               )}
             </li>
