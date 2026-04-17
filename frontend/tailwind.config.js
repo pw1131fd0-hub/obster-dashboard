@@ -15,8 +15,8 @@ export default {
         success: '#22C55E',
         warning: '#F59E0B',
         error: '#EF4444',
-      },
+      }
     },
   },
   plugins: [],
-};
+}

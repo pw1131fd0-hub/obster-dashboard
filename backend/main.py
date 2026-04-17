@@ -1,8 +1,7 @@
 """
-Obster Dashboard Backend - FastAPI Application
-Monitors OpenClaw distributed system: projects, cronjobs, agents, and execution logs.
+FastAPI backend for Obster Dashboard system.
+Provides endpoints for monitoring projects, cronjobs, agents, and execution logs.
 """
-
 import json
 import logging
 import os
@@ -10,12 +9,12 @@ import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -24,87 +23,88 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Environment Variables
 # =============================================================================
-PROJECTS_PATH: str = os.getenv("PROJECTS_PATH", "/home/crawd_user/project")
-LOGS_PATH: str = os.getenv("LOGS_PATH", "/home/crawd_user/.openclaw/workspace/logs/executions")
-TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TIMEOUT_MINUTES: int = int(os.getenv("TIMEOUT_MINUTES", "30"))
-REFRESH_INTERVAL: int = int(os.getenv("REFRESH_INTERVAL", "30000"))
+PROJECTS_PATH: str = os.environ.get("PROJECTS_PATH", "/home/crawd_user/project")
+LOGS_PATH: str = os.environ.get("LOGS_PATH", "/home/crawd_user/.openclaw/workspace/logs/executions")
+TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+TIMEOUT_MINUTES: int = int(os.environ.get("TIMEOUT_MINUTES", "30"))
+REFRESH_INTERVAL: int = int(os.environ.get("REFRESH_INTERVAL", "30000"))
 
 # Agent list
-AGENTS: list[str] = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
+AGENTS: List[str] = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
 
 # Systemd services to monitor
-SYSTEMD_SERVICES: list[str] = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
+SYSTEMD_SERVICES: List[str] = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
+
+# Track startup time for uptime calculation
+STARTUP_TIME: float = time.time()
+
+# Version
+VERSION: str = "1.0.0"
+
+# =============================================================================
+# FastAPI Application
+# =============================================================================
+app = FastAPI(
+    title="Obster Dashboard API",
+    description="Backend API for monitoring OpenClaw distributed system",
+    version=VERSION,
+)
 
 # =============================================================================
 # Pydantic Models
 # =============================================================================
 
 
-class ErrorResponse(BaseModel):
-    """Standard error response format"""
-    detail: str
-    code: str
-
-
 class HealthResponse(BaseModel):
     """Response model for /api/health"""
     status: str = "healthy"
     uptime_seconds: float
-    version: str = "1.0.0"
+    version: str
 
 
 class ProjectStatus(BaseModel):
     """Project status model from .dev_status.json"""
     name: str
     path: str
-    stage: str = Field(..., pattern="^(prd|dev|test|security)$")
-    iteration: int = Field(ge=0)
-    quality_score: float = Field(ge=0, le=100)
-    blocking_errors: list[str] = Field(default_factory=list)
-    updated_at: str
-
-    @field_validator("stage", mode="before")
-    @classmethod
-    def normalize_stage(cls, v: Any) -> str:
-        if isinstance(v, str):
-            stage_map = {"production": "prd", "prod": "prd", "development": "dev"}
-            return stage_map.get(v.lower(), v.lower())
-        return str(v)
+    stage: str = "unknown"
+    iteration: int = 0
+    quality_score: float = 0.0
+    blocking_errors: List[str] = Field(default_factory=list)
+    updated_at: Optional[str] = None
 
 
 class ProjectResponse(BaseModel):
     """Response model for /api/projects"""
-    projects: list[ProjectStatus]
+    projects: List[ProjectStatus]
     timestamp: str
 
 
 class CronJobStatus(BaseModel):
     """CronJob status model from systemd"""
     name: str
-    status: str = Field(..., pattern="^(active|inactive|failed|error|timeout|unknown)$")
+    status: str = "unknown"
     last_run: Optional[str] = None
     exit_code: Optional[int] = None
-    recent_logs: list[str] = Field(default_factory=list)
+    recent_logs: List[str] = Field(default_factory=list)
 
 
 class CronJobResponse(BaseModel):
     """Response model for /api/cronjobs"""
-    cronjobs: list[CronJobStatus]
+    cronjobs: List[CronJobStatus]
     timestamp: str
 
 
 class AgentInfo(BaseModel):
     """Agent health status model"""
     name: str
-    status: str = Field(..., pattern="^(healthy|unhealthy|unknown|error)$")
+    status: str = "unknown"
     last_response: Optional[str] = None
     minutes_ago: Optional[float] = None
 
 
 class AgentResponse(BaseModel):
     """Response model for /api/agents"""
-    agents: list[AgentInfo]
+    agents: List[AgentInfo]
     timestamp: str
 
 
@@ -112,13 +112,13 @@ class ExecutionLog(BaseModel):
     """Execution log entry model"""
     filename: str
     path: str
-    timestamp: str
-    content: Optional[dict[str, Any]] = None
+    timestamp: Optional[str] = None
+    content: Optional[Dict[str, Any]] = None
 
 
 class LogResponse(BaseModel):
     """Response model for /api/logs"""
-    logs: list[ExecutionLog]
+    logs: List[ExecutionLog]
     count: int
     timestamp: str
 
@@ -129,26 +129,14 @@ class ConfigResponse(BaseModel):
     LOGS_PATH: str
     TELEGRAM_BOT_TOKEN: str
     TIMEOUT_MINUTES: int
+    AGENTS: List[str]
     REFRESH_INTERVAL: int
-
-
-# =============================================================================
-# FastAPI Application
-# =============================================================================
-
-app = FastAPI(
-    title="Obster Dashboard API",
-    description="Backend API for monitoring OpenClaw distributed system",
-    version="1.0.0",
-)
-
-# Track startup time for uptime calculation
-APP_START_TIME = time.time()
 
 
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
 
 def get_timestamp() -> str:
     """Get current UTC timestamp in ISO8601 format"""
@@ -157,19 +145,20 @@ def get_timestamp() -> str:
 
 def get_uptime_seconds() -> float:
     """Calculate uptime in seconds"""
-    return round(time.time() - APP_START_TIME, 2)
+    return round(time.time() - STARTUP_TIME, 2)
 
 
 # =============================================================================
 # Project Scanner Subsystem
 # =============================================================================
 
-def scan_projects() -> list[ProjectStatus]:
+
+def scan_projects() -> List[ProjectStatus]:
     """
     Scan {PROJECTS_PATH}/*/docs/.dev_status.json for project status.
     Returns list of ProjectStatus objects.
     """
-    projects: list[ProjectStatus] = []
+    projects: List[ProjectStatus] = []
     projects_path = Path(PROJECTS_PATH)
 
     if not projects_path.exists():
@@ -192,11 +181,11 @@ def scan_projects() -> list[ProjectStatus]:
                 project = ProjectStatus(
                     name=subdir.name,
                     path=str(subdir),
-                    stage=data.get("stage", "dev"),
+                    stage=data.get("stage", "unknown"),
                     iteration=data.get("iteration", 0),
                     quality_score=data.get("quality_score", 0.0),
                     blocking_errors=data.get("blocking_errors", []),
-                    updated_at=data.get("updated_at", get_timestamp()),
+                    updated_at=data.get("updated_at"),
                 )
                 projects.append(project)
                 logger.info(f"Scanned project: {project.name}")
@@ -218,7 +207,8 @@ def scan_projects() -> list[ProjectStatus]:
 # Systemd Reader Subsystem
 # =============================================================================
 
-def get_systemctl_show(service_name: str) -> dict[str, str]:
+
+def get_systemctl_show(service_name: str) -> Dict[str, str]:
     """
     Run systemctl show for a service and parse key=value pairs.
     Returns dict with ActiveState, ExecMainStatus, etc.
@@ -231,7 +221,7 @@ def get_systemctl_show(service_name: str) -> dict[str, str]:
             timeout=5,
         )
 
-        data: dict[str, str] = {}
+        data: Dict[str, str] = {}
         for line in result.stdout.splitlines():
             if "=" in line:
                 key, value = line.split("=", 1)
@@ -249,7 +239,7 @@ def get_systemctl_show(service_name: str) -> dict[str, str]:
         raise
 
 
-def get_journalctl_logs(service_name: str, limit: int = 5) -> list[str]:
+def get_journalctl_logs(service_name: str, limit: int = 5) -> List[str]:
     """
     Run journalctl to get recent logs for a service.
     Returns list of log lines.
@@ -335,11 +325,11 @@ def get_cronjob_status(service_name: str) -> CronJobStatus:
         )
 
 
-def scan_cronjobs() -> list[CronJobStatus]:
+def scan_cronjobs() -> List[CronJobStatus]:
     """
     Scan all configured systemd services for status.
     """
-    cronjobs: list[CronJobStatus] = []
+    cronjobs: List[CronJobStatus] = []
     for service in SYSTEMD_SERVICES:
         cronjob = get_cronjob_status(service)
         cronjobs.append(cronjob)
@@ -350,7 +340,8 @@ def scan_cronjobs() -> list[CronJobStatus]:
 # Telegram Agent Tracker Subsystem
 # =============================================================================
 
-def poll_telegram_updates() -> dict[str, Any]:
+
+def poll_telegram_updates() -> Dict[str, Any]:
     """
     Fetch updates from Telegram Bot API.
     Returns parsed JSON response.
@@ -367,7 +358,7 @@ def poll_telegram_updates() -> dict[str, Any]:
     return response.json()
 
 
-def get_agent_status(agent_name: str, updates: list[dict[str, Any]]) -> AgentInfo:
+def get_agent_status(agent_name: str, updates: List[Dict[str, Any]]) -> AgentInfo:
     """
     Get status for a single agent based on Telegram updates.
     """
@@ -411,12 +402,12 @@ def get_agent_status(agent_name: str, updates: list[dict[str, Any]]) -> AgentInf
     )
 
 
-def track_agents() -> list[AgentInfo]:
+def track_agents() -> List[AgentInfo]:
     """
     Track agent health via Telegram Bot API getUpdates.
     Returns list of AgentInfo objects with health status.
     """
-    agents: list[AgentInfo] = []
+    agents: List[AgentInfo] = []
 
     if not TELEGRAM_BOT_TOKEN:
         # Return all agents as unknown if no token configured
@@ -464,11 +455,12 @@ def track_agents() -> list[AgentInfo]:
 # Execution Log Collector Subsystem
 # =============================================================================
 
-def scan_logs(limit: int = 20) -> list[ExecutionLog]:
+
+def scan_logs(limit: int = 20) -> List[ExecutionLog]:
     """
     Read JSON files from {LOGS_PATH}, sort by mtime, return latest 'limit' entries.
     """
-    logs: list[ExecutionLog] = []
+    logs: List[ExecutionLog] = []
     logs_path = Path(LOGS_PATH)
 
     if not logs_path.exists():
@@ -514,6 +506,7 @@ def scan_logs(limit: int = 20) -> list[ExecutionLog]:
 # API Endpoints
 # =============================================================================
 
+
 @app.get("/api/health", response_model=HealthResponse)
 def get_health():
     """
@@ -523,7 +516,7 @@ def get_health():
     return HealthResponse(
         status="healthy",
         uptime_seconds=get_uptime_seconds(),
-        version="1.0.0",
+        version=VERSION,
     )
 
 
@@ -585,23 +578,37 @@ def get_logs(limit: int = 20):
 def get_config():
     """
     Get system configuration (environment variables).
-    Note: TELEGRAM_BOT_TOKEN is masked in output for security.
     """
     return ConfigResponse(
         PROJECTS_PATH=PROJECTS_PATH,
         LOGS_PATH=LOGS_PATH,
-        TELEGRAM_BOT_TOKEN="***" if TELEGRAM_BOT_TOKEN else "",
+        TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN,
         TIMEOUT_MINUTES=TIMEOUT_MINUTES,
+        AGENTS=AGENTS,
         REFRESH_INTERVAL=REFRESH_INTERVAL,
     )
 
 
-# Error handlers
+@app.get("/api/")
+def root():
+    """Root endpoint with API information."""
+    return {
+        "name": "Obster Dashboard API",
+        "version": VERSION,
+        "docs": "/docs",
+    }
+
+
+# =============================================================================
+# Error Handlers
+# =============================================================================
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail, "code": getattr(exc, "code", f"HTTP_{exc.status_code}")},
+        content={"detail": exc.detail, "code": f"HTTP_{exc.status_code}"},
     )
 
 

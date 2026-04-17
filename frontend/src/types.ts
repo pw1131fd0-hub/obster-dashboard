@@ -38,7 +38,7 @@ export interface AgentResponse {
   timestamp: string;
 }
 
-export interface LogEntry {
+export interface ExecutionLog {
   filename: string;
   path: string;
   timestamp: string;
@@ -46,28 +46,28 @@ export interface LogEntry {
 }
 
 export interface LogResponse {
-  logs: LogEntry[];
+  logs: ExecutionLog[];
   count: number;
   timestamp: string;
 }
 
 export interface HealthResponse {
-  status: 'healthy' | 'unhealthy';
+  status: 'healthy';
   uptime_seconds: number;
   version: string;
 }
 
-export interface DashboardData {
+export interface DashboardState {
   projects: Project[];
   cronjobs: CronJob[];
   agents: Agent[];
-  logs: LogEntry[];
-}
-
-export type DashboardStatus = 'loading' | 'success' | 'error';
-
-export interface DashboardState extends DashboardData {
+  logs: ExecutionLog[];
   loading: boolean;
   error: string | null;
-  lastUpdated: Date | null;
+  lastUpdated: string | null;
 }
+
+export type DashboardAction =
+  | { type: 'FETCH_START' }
+  | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
+  | { type: 'FETCH_ERROR'; payload: string };
