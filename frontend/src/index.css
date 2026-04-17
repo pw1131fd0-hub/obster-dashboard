@@ -1,6 +1,6 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 ::-webkit-scrollbar {
   width: 8px;
@@ -12,10 +12,14 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3B82F6;
+  background: #475569;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #2563EB;
+  background: #64748b;
+}
+
+body {
+  @apply bg-primary text-text;
 }
