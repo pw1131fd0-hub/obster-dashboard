@@ -1,6 +1,6 @@
 # Frontend-only build stage
 # Produces static assets in dist/ directory
-FROM node:20-alpine
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
@@ -13,6 +13,18 @@ COPY frontend/ .
 # Build frontend assets
 RUN npm run build
 
-# Output directory for built assets
-FROM scratch AS export
-COPY --from=0 /app/frontend/dist /app/frontend/dist
+# Copy built assets to nginx:alpine for serving
+FROM nginx:alpine AS frontend-server
+
+# Remove default nginx config
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+# Copy built frontend assets
+COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
+
+# Custom nginx config for SPA
+RUN echo 'server { listen 80; root /usr/share/nginx/html; index index.html; location / { try_files $uri $uri/ /index.html; } }' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
