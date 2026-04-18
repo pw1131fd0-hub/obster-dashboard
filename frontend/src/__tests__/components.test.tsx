@@ -5,7 +5,7 @@ import { AgentHealthPanel } from '../components/AgentHealthPanel';
 import { CronJobPanel } from '../components/CronJobPanel';
 import { ExecutionLogPanel } from '../components/ExecutionLogPanel';
 import { setupFetchMock, renderWithProvider } from './testUtils';
-import type { Project, Agent, CronJob, ExecutionLog } from '../types';
+import type { Project, Agent, CronJob, LogEntry } from '../types';
 
 // ---------------------------------------------------------------------------
 // ProjectStatusPanel
@@ -261,7 +261,7 @@ describe('ExecutionLogPanel', () => {
   });
 
   it('renders a log entry and expands its JSON on click', async () => {
-    const logEntry: ExecutionLog = {
+    const logEntry: LogEntry = {
       filename: 'exec-20260413-001.json',
       path: '/logs/exec-20260413-001.json',
       timestamp: '2026-04-13T08:00:00.000Z',

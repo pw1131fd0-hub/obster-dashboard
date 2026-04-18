@@ -1,3 +1,6 @@
+// Ensure React uses development mode in tests - must be before React imports
+process.env.NODE_ENV = 'development';
+
 import '@testing-library/jest-dom';
 import { expect, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';

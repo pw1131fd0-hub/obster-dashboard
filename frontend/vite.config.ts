@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify(apiBaseUrl),
     },
     server: {
-      port: 3000,
+      port: 5173,
     },
   };
 });
