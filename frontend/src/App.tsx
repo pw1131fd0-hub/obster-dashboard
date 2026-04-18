@@ -1,11 +1,9 @@
-import React, { useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useDashboard } from './context/DashboardContext';
-import { ProjectStatusPanel } from './components/ProjectStatusPanel';
-import { CronJobPanel } from './components/CronJobPanel';
-import { AgentHealthPanel } from './components/AgentHealthPanel';
-import { ExecutionLogPanel } from './components/ExecutionLogPanel';
-
-const REFRESH_INTERVAL = 30;
+import ProjectStatusPanel from './components/ProjectStatusPanel';
+import CronJobPanel from './components/CronJobPanel';
+import AgentHealthPanel from './components/AgentHealthPanel';
+import ExecutionLogPanel from './components/ExecutionLogPanel';
 
 function App() {
   const { state, fetchData } = useDashboard();
