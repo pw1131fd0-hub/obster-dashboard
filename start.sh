@@ -11,6 +11,20 @@ export TIMEOUT_MINUTES=${TIMEOUT_MINUTES:-30}
 export REFRESH_INTERVAL=${REFRESH_INTERVAL:-30000}
 export VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
 
+# Function to cleanup on exit
+cleanup() {
+    echo "Stopping services..."
+    if [ -n "$BACKEND_PID" ]; then
+        kill $BACKEND_PID 2>/dev/null || true
+    fi
+    if [ -n "$FRONTEND_PID" ]; then
+        kill $FRONTEND_PID 2>/dev/null || true
+    fi
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
 # Start backend (uvicorn)
 cd /home/crawd_user/project/obster-dashboard/backend
 if [ -d ".venv" ]; then
@@ -20,7 +34,7 @@ pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 
-# Start frontend (vite)
+# Start frontend (vite dev server)
 cd /home/crawd_user/project/obster-dashboard/frontend
 npm install
 npm run dev -- --host 0.0.0.0 --port 5173 &
@@ -31,5 +45,4 @@ echo "Frontend running on http://localhost:5173 (PID: $FRONTEND_PID)"
 echo "Press Ctrl+C to stop both services"
 
 # Wait for both processes
-trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" SIGINT SIGTERM
 wait $BACKEND_PID $FRONTEND_PID

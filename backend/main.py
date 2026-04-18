@@ -37,6 +37,15 @@ TIMEOUT_MINUTES = int(os.getenv("TIMEOUT_MINUTES", "30"))
 # Default agents list
 DEFAULT_AGENTS = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
 
+# Parse AGENTS env var (comma-separated list)
+def get_agents_list() -> List[str]:
+    agents_env = os.getenv("AGENTS", "")
+    if agents_env:
+        return [a.strip() for a in agents_env.split(",") if a.strip()]
+    return DEFAULT_AGENTS.copy()
+
+AGENTS = get_agents_list()
+
 # Systemd services to monitor
 SYSTEMD_SERVICES = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
 
@@ -279,7 +288,7 @@ def get_agents_health() -> List[Agent]:
     
     if not TELEGRAM_BOT_TOKEN:
         # Return all agents as unknown if no token
-        for agent_name in DEFAULT_AGENTS:
+        for agent_name in AGENTS:
             agents_info.append(Agent(
                 name=agent_name,
                 status="unknown",
@@ -287,10 +296,10 @@ def get_agents_health() -> List[Agent]:
                 minutes_ago=None
             ))
         return agents_info
-    
+
     updates = get_telegram_updates(TELEGRAM_BOT_TOKEN)
     if not updates or updates.get("ok") != True:
-        for agent_name in DEFAULT_AGENTS:
+        for agent_name in AGENTS:
             agents_info.append(Agent(
                 name=agent_name,
                 status="error",
@@ -301,7 +310,7 @@ def get_agents_health() -> List[Agent]:
     
     # Parse updates to find agent responses
     updates_data = updates.get("result", [])
-    agent_last_times: Dict[str, datetime] = {name: datetime.min for name in DEFAULT_AGENTS}
+    agent_last_times: Dict[str, datetime] = {name: datetime.min for name in AGENTS}
     
     for update in updates_data:
         message = update.get("message", {})
@@ -312,7 +321,7 @@ def get_agents_health() -> List[Agent]:
             continue
         
         # Check if any agent name is in the message
-        for agent_name in DEFAULT_AGENTS:
+        for agent_name in AGENTS:
             if agent_name.lower() in text.lower():
                 try:
                     msg_time = datetime.fromtimestamp(date_str)
@@ -323,7 +332,7 @@ def get_agents_health() -> List[Agent]:
     
     # Calculate status for each agent
     now = datetime.utcnow()
-    for agent_name in DEFAULT_AGENTS:
+    for agent_name in AGENTS:
         last_time = agent_last_times[agent_name]
         
         if last_time == datetime.min:
@@ -465,7 +474,7 @@ def get_config():
         projects_path=PROJECTS_PATH,
         logs_path=LOGS_PATH,
         timeout_minutes=TIMEOUT_MINUTES,
-        agents=DEFAULT_AGENTS,
+        agents=AGENTS,
         timestamp=get_timestamp()
     )
 

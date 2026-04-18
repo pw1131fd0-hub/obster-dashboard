@@ -1,9 +1,60 @@
-__pycache__
+# Dependencies
+node_modules/
+__pycache__/
 *.pyc
-.git
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Git
+.git/
 .gitignore
+.gitattributes/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment files
 .env
+.env.local
+.env.*.local
+
+# Documentation
 *.md
 docs/
-backend/venv/
-frontend/node_modules/
+*.rst
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+frontend/.pytest_cache/
+
+# Logs
+*.log
+logs/
+
+# Docker files (we build from context, don't include these in builder context)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp

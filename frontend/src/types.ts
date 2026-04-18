@@ -58,7 +58,7 @@ export interface DashboardState {
   logs: LogEntry[];
   loading: boolean;
   error: string | null;
-  lastUpdated: Date | null;
+  lastUpdated: string | null;
 }
 
 export type DashboardAction =

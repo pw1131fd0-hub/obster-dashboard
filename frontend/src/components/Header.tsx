@@ -7,27 +7,27 @@ export function Header() {
     <header className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-text leading-tight">
-          OpenClaw Dashboard
+          🦞 OpenClaw Dashboard
         </h1>
         <p className="text-text-muted text-sm mt-1">
-          Small-scale distributed system monitor | VPS: srv1318420
+          小龍蝦系統監控儀表板 | VPS: srv1318420
         </p>
         <div className="flex items-center mt-2 text-text-muted text-sm">
           <span
             className="inline-block w-2 h-2 bg-success rounded-full mr-2 animate-pulse"
             aria-hidden="true"
           />
-          Auto-refresh every 30 seconds
+          每 30 秒自動刷新
         </div>
       </div>
 
       <div className="flex items-center gap-4 shrink-0">
         <div className="text-right hidden sm:block">
-          <p className="text-text-muted text-xs uppercase tracking-wide">Last updated</p>
+          <p className="text-text-muted text-xs uppercase tracking-wide">Last</p>
           <p className="text-text text-sm font-mono tabular-nums">
             {lastUpdated
               ? new Date(lastUpdated).toLocaleTimeString()
-              : 'Never'}
+              : '—'}
           </p>
         </div>
 
@@ -41,7 +41,7 @@ export function Header() {
             focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
           "
         >
-          Refresh
+          重新整理
         </button>
       </div>
     </header>
