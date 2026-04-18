@@ -3,29 +3,22 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# Copy frontend package files
-COPY frontend/package.json frontend/package-lock.json* ./
-
-# Install dependencies
-RUN npm install
-
-# Copy frontend source code
+# Copy frontend files
+COPY frontend/package.json frontend/vite.config.ts frontend/tsconfig.json frontend/tsconfig.node.json frontend/postcss.config.js frontend/tailwind.config.js ./
 COPY frontend/ ./
 
-# Build the frontend
-RUN npm run build
+# Install dependencies and build
+RUN npm install && npm run build
 
-# Stage 2: Final nginx image
+# Stage 2: Production nginx
 FROM nginx:alpine
 
-# Copy built frontend assets
-COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
-
-# Copy nginx configuration
+# Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
+# Copy built frontend from stage 1
+COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
+
 EXPOSE 80
 
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]

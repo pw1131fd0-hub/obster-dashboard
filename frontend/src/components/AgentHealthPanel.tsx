@@ -1,51 +1,59 @@
-import { useDashboard } from '../context/DashboardContext'
-import type { Agent } from '../types'
+import { useDashboard } from '../context/DashboardContext';
 
-const statusColors: Record<Agent['status'], string> = {
-  healthy: 'text-success',
-  unhealthy: 'text-error',
-  unknown: 'text-gray-400',
-  error: 'text-error',
-}
+function AgentHealthPanel() {
+  const { state } = useDashboard();
 
-export default function AgentHealthPanel() {
-  const { state } = useDashboard()
+  const statusColors: Record<string, string> = {
+    healthy: 'text-success',
+    unhealthy: 'text-error',
+    unknown: 'text-text-muted',
+    error: 'text-error',
+  };
+
+  const statusIcons: Record<string, string> = {
+    healthy: '●',
+    unhealthy: '●',
+    unknown: '○',
+    error: '●',
+  };
 
   return (
-    <section className="bg-secondary rounded-lg p-4 border border-slate-700">
+    <section className="bg-secondary rounded-xl p-6">
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        🤖 Agent 健康狀態
+        🤖 Agent 健康度
       </h2>
       {state.agents.length === 0 ? (
-        <p className="text-text-muted">暂无 agent 資料</p>
+        <p className="text-text-muted">暫無 Agent 資料</p>
       ) : (
-        <div className="space-y-4">
-          {state.agents.map((agent, index) => (
-            <div key={index} className="bg-primary rounded-lg p-4 border border-slate-700">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-medium text-text-main">{agent.name}</h3>
-                <span className={`text-sm font-medium ${statusColors[agent.status]}`}>
+        <div className="grid grid-cols-2 gap-4">
+          {state.agents.map((agent) => (
+            <div key={agent.name} className="border border-slate-700 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">{agent.name}</h3>
+                <span className={statusColors[agent.status] || 'text-text-muted'}>
+                  {statusIcons[agent.status] || '○'}
+                </span>
+              </div>
+              <div className="mt-2 text-sm">
+                <span className="text-text-muted">Status: </span>
+                <span className={statusColors[agent.status] || 'text-text-muted'}>
                   {agent.status}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-text-muted">Last Response:</span>
-                  <span className="ml-2 text-text-main">
-                    {agent.last_response ? new Date(agent.last_response).toLocaleString('zh-TW') : 'N/A'}
+              {agent.minutes_ago !== null && (
+                <div className="text-sm">
+                  <span className="text-text-muted">Last Response: </span>
+                  <span className={agent.minutes_ago >= 30 ? 'text-error' : 'text-text'}>
+                    {Math.round(agent.minutes_ago)} 分鐘前
                   </span>
                 </div>
-                <div>
-                  <span className="text-text-muted">Minutes Ago:</span>
-                  <span className="ml-2 text-text-main">
-                    {agent.minutes_ago !== null ? `${agent.minutes_ago} min` : 'N/A'}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
       )}
     </section>
-  )
+  );
 }
+
+export default AgentHealthPanel;

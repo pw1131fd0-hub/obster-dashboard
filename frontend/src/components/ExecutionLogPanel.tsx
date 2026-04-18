@@ -1,58 +1,46 @@
-import { useState } from 'react'
-import { useDashboard } from '../context/DashboardContext'
-import type { LogEntry } from '../types'
+import { useState } from 'react';
+import { useDashboard } from '../context/DashboardContext';
 
-function LogEntryCard({ log }: { log: LogEntry }) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div className="bg-primary rounded-lg p-4 border border-slate-700">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between text-left"
-      >
-        <div>
-          <h3 className="font-medium text-text-main">{log.filename}</h3>
-          <p className="text-sm text-text-muted">{log.path}</p>
-          <p className="text-xs text-text-muted mt-1">
-            {new Date(log.timestamp).toLocaleString('zh-TW')}
-          </p>
-        </div>
-        <span className="text-text-muted">
-          {expanded ? '▲' : '▼'}
-        </span>
-      </button>
-      {expanded && (
-        <div className="mt-3 bg-secondary rounded p-3 overflow-x-auto">
-          <pre className="font-mono text-xs text-text-main whitespace-pre-wrap">
-            {typeof log.content === 'string'
-              ? log.content
-              : JSON.stringify(log.content, null, 2)}
-          </pre>
-        </div>
-      )}
-    </div>
-  )
-}
-
-export default function ExecutionLogPanel() {
-  const { state } = useDashboard()
-  const displayedLogs = state.logs.slice(0, 20)
+function ExecutionLogPanel() {
+  const { state } = useDashboard();
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
   return (
-    <section className="bg-secondary rounded-lg p-4 border border-slate-700">
+    <section className="bg-secondary rounded-xl p-6">
       <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        📜 執行日誌
+        📜 執行 Log
       </h2>
-      {displayedLogs.length === 0 ? (
-        <p className="text-text-muted">暂无日誌資料</p>
+      {state.logs.length === 0 ? (
+        <p className="text-text-muted">暫無 Log 資料</p>
       ) : (
         <div className="space-y-4">
-          {displayedLogs.map((log, index) => (
-            <LogEntryCard key={index} log={log} />
+          {state.logs.slice(0, 20).map((log) => (
+            <div key={log.filename} className="border border-slate-700 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium">{log.filename}</h3>
+                  <p className="text-sm text-text-muted">{log.timestamp}</p>
+                </div>
+                <button
+                  onClick={() => setExpandedLog(expandedLog === log.filename ? null : log.filename)}
+                  className="text-sm text-accent hover:underline"
+                >
+                  {expandedLog === log.filename ? '隱藏內容' : '展開內容'}
+                </button>
+              </div>
+              {expandedLog === log.filename && (
+                <div className="mt-3 bg-primary rounded p-3 font-mono text-xs overflow-x-auto">
+                  <pre className="whitespace-pre-wrap">
+                    {JSON.stringify(log.content, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
     </section>
-  )
+  );
 }
+
+export default ExecutionLogPanel;

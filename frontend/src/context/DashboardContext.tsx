@@ -1,119 +1,115 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react'
-import type { DashboardData } from '../types'
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import type { Project, CronJob, Agent, LogEntry, HealthResponse } from '../types';
 
-type Action =
+interface DashboardState {
+  projects: Project[];
+  cronjobs: CronJob[];
+  agents: Agent[];
+  logs: LogEntry[];
+  health: HealthResponse | null;
+  loading: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+}
+
+type DashboardAction =
   | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardData> }
-  | { type: 'FETCH_ERROR'; payload: string }
+  | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
+  | { type: 'FETCH_ERROR'; error: string };
 
-const initialState: DashboardData = {
+const initialState: DashboardState = {
   projects: [],
   cronjobs: [],
   agents: [],
   logs: [],
   health: null,
-  lastUpdated: null,
-  error: null,
   loading: false,
-}
+  error: null,
+  lastUpdated: null,
+};
 
-function dashboardReducer(state: DashboardData, action: Action): DashboardData {
+function dashboardReducer(state: DashboardState, action: DashboardAction): DashboardState {
   switch (action.type) {
     case 'FETCH_START':
-      return { ...state, error: null, loading: true }
+      return { ...state, loading: true, error: null };
     case 'FETCH_SUCCESS':
-      return {
-        ...state,
-        ...action.payload,
-        lastUpdated: new Date().toLocaleTimeString('zh-TW'),
-        error: null,
-        loading: false,
-      }
+      return { ...state, ...action.payload, loading: false, lastUpdated: new Date() };
     case 'FETCH_ERROR':
-      return { ...state, error: action.payload, loading: false }
+      return { ...state, loading: false, error: action.error };
     default:
-      return state
+      return state;
   }
 }
 
 interface DashboardContextType {
-  state: DashboardData
-  fetchData: () => Promise<void>
-  refresh: () => void
+  state: DashboardState;
+  refresh: () => void;
 }
 
-const DashboardContext = createContext<DashboardContextType | null>(null)
-
-const REFRESH_INTERVAL = 30000
+const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(dashboardReducer, initialState)
-  const intervalRef = useRef<number | null>(null)
-  const refreshRef = useRef<() => void>(() => {})
+  const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
   const fetchData = useCallback(async () => {
-    dispatch({ type: 'FETCH_START' })
+    dispatch({ type: 'FETCH_START' });
     try {
-      const [projectsRes, cronjobsRes, agentsRes, logsRes, healthRes] = await Promise.all([
+      const [healthRes, projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
+        fetch('/api/health'),
         fetch('/api/projects'),
         fetch('/api/cronjobs'),
         fetch('/api/agents'),
         fetch('/api/logs'),
-        fetch('/api/health'),
-      ])
+      ]);
 
-      const [projects, cronjobs, agents, logs, health] = await Promise.all([
-        projectsRes.json().catch(() => ({ projects: [] })),
-        cronjobsRes.json().catch(() => ({ cronjobs: [] })),
-        agentsRes.json().catch(() => ({ agents: [] })),
-        logsRes.json().catch(() => ({ logs: [], count: 0 })),
-        healthRes.json().catch(() => null),
-      ])
+      if (!healthRes.ok || !projectsRes.ok || !cronjobsRes.ok || !agentsRes.ok || !logsRes.ok) {
+        throw new Error('API request failed');
+      }
+
+      const [health, projects, cronjobs, agents, logs] = await Promise.all([
+        healthRes.json() as Promise<HealthResponse>,
+        projectsRes.json() as Promise<{ projects: Project[] }>,
+        cronjobsRes.json() as Promise<{ cronjobs: CronJob[] }>,
+        agentsRes.json() as Promise<{ agents: Agent[] }>,
+        logsRes.json() as Promise<{ logs: LogEntry[]; count: number }>,
+      ]);
 
       dispatch({
         type: 'FETCH_SUCCESS',
         payload: {
-          projects: projects.projects || [],
-          cronjobs: cronjobs.cronjobs || [],
-          agents: agents.agents || [],
-          logs: logs.logs || [],
           health,
+          projects: projects.projects,
+          cronjobs: cronjobs.cronjobs,
+          agents: agents.agents,
+          logs: logs.logs,
         },
-      })
+      });
     } catch (err) {
-      dispatch({ type: 'FETCH_ERROR', payload: String(err) })
+      dispatch({ type: 'FETCH_ERROR', error: err instanceof Error ? err.message : 'Unknown error' });
     }
-  }, [])
-
-  const refresh = useCallback(() => {
-    if (intervalRef.current !== null) {
-      clearInterval(intervalRef.current)
-    }
-    fetchData()
-    intervalRef.current = window.setInterval(fetchData, REFRESH_INTERVAL)
-  }, [fetchData])
-
-  refreshRef.current = refresh
+  }, []);
 
   useEffect(() => {
-    fetchData()
-    intervalRef.current = window.setInterval(fetchData, REFRESH_INTERVAL)
-    return () => {
-      if (intervalRef.current !== null) {
-        clearInterval(intervalRef.current)
-      }
-    }
-  }, [fetchData])
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  const refresh = useCallback(() => {
+    fetchData();
+  }, [fetchData]);
 
   return (
-    <DashboardContext.Provider value={{ state, fetchData, refresh }}>
+    <DashboardContext.Provider value={{ state, refresh }}>
       {children}
     </DashboardContext.Provider>
-  )
+  );
 }
 
 export function useDashboard() {
-  const context = useContext(DashboardContext)
-  if (!context) throw new Error('useDashboard must be used within DashboardProvider')
-  return context
+  const context = useContext(DashboardContext);
+  if (!context) {
+    throw new Error('useDashboard must be used within a DashboardProvider');
+  }
+  return context;
 }
