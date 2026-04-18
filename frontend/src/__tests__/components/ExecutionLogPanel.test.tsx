@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ExecutionLogPanel } from '../../components/ExecutionLogPanel';
+import ExecutionLogPanel from '../../components/ExecutionLogPanel';
 import { setupFetchMock } from '../testUtils';
 
 describe('ExecutionLogPanel', () => {

@@ -5,10 +5,16 @@ WORKDIR /app/frontend
 
 # Copy frontend files
 COPY frontend/package.json frontend/vite.config.ts frontend/tsconfig.json frontend/tsconfig.node.json frontend/postcss.config.js frontend/tailwind.config.js ./
-COPY frontend/ ./
 
-# Install dependencies and build
-RUN npm install && npm run build
+# Install dependencies
+RUN npm install
+
+# Copy source files
+COPY frontend/src ./src
+COPY frontend/public ./public
+
+# Build the frontend
+RUN npm run build
 
 # Stage 2: Production nginx
 FROM nginx:alpine

@@ -1,10 +1,10 @@
 import { useDashboard } from '../context/DashboardContext';
 
 const stageColors: Record<string, string> = {
-  prd: 'bg-blue-600',
-  dev: 'bg-yellow-600',
-  test: 'bg-orange-600',
-  security: 'bg-red-600',
+  prd: 'bg-blue-500',
+  dev: 'bg-yellow-500',
+  test: 'bg-orange-500',
+  security: 'bg-red-500',
 };
 
 function ProjectStatusPanel() {

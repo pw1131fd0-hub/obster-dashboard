@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
-import { ProjectStatusPanel } from '../components/ProjectStatusPanel';
-import { AgentHealthPanel } from '../components/AgentHealthPanel';
-import { CronJobPanel } from '../components/CronJobPanel';
-import { ExecutionLogPanel } from '../components/ExecutionLogPanel';
+import ProjectStatusPanel from '../components/ProjectStatusPanel';
+import AgentHealthPanel from '../components/AgentHealthPanel';
+import CronJobPanel from '../components/CronJobPanel';
+import ExecutionLogPanel from '../components/ExecutionLogPanel';
 import { setupFetchMock, renderWithProvider } from './testUtils';
 import type { Project, Agent, CronJob, LogEntry } from '../types';
 

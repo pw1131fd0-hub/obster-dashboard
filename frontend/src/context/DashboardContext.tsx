@@ -48,6 +48,9 @@ interface DashboardContextType {
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const REFRESH_INTERVAL = Number(import.meta.env.VITE_REFRESH_INTERVAL) || 30000;
+
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
@@ -55,11 +58,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'FETCH_START' });
     try {
       const [healthRes, projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
-        fetch('/api/health'),
-        fetch('/api/projects'),
-        fetch('/api/cronjobs'),
-        fetch('/api/agents'),
-        fetch('/api/logs'),
+        fetch(`${API_BASE_URL}/health`),
+        fetch(`${API_BASE_URL}/projects`),
+        fetch(`${API_BASE_URL}/cronjobs`),
+        fetch(`${API_BASE_URL}/agents`),
+        fetch(`${API_BASE_URL}/logs`),
       ]);
 
       if (!healthRes.ok || !projectsRes.ok || !cronjobsRes.ok || !agentsRes.ok || !logsRes.ok) {
@@ -91,7 +94,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchData]);
 

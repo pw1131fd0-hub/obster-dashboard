@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ProjectStatusPanel } from '../../components/ProjectStatusPanel';
+import ProjectStatusPanel from '../../components/ProjectStatusPanel';
 import { setupFetchMock } from '../testUtils';
 
 describe('ProjectStatusPanel', () => {
@@ -39,15 +39,14 @@ describe('ProjectStatusPanel', () => {
 
   it('displays stage badges with correct colors', () => {
     render(<ProjectStatusPanel />);
-    const devBadge = screen.getByText('dev');
-    const prdBadge = screen.getByText('prd');
+    const devBadge = screen.getByText('DEV');
+    const prdBadge = screen.getByText('PRD');
     expect(devBadge).toBeInTheDocument();
     expect(prdBadge).toBeInTheDocument();
   });
 
   it('shows quality score warning when below 85', () => {
     render(<ProjectStatusPanel />);
-    // obster-worker has quality_score 78, which is < 85
     const lowScoreElements = screen.getAllByText(/^78$/);
     expect(lowScoreElements.length).toBeGreaterThan(0);
   });
@@ -57,6 +56,6 @@ describe('ProjectStatusPanel', () => {
       '/api/projects': { projects: [] },
     });
     render(<ProjectStatusPanel />);
-    expect(screen.getByText('No projects found')).toBeInTheDocument();
+    expect(screen.getByText('暂無專案資料')).toBeInTheDocument();
   });
 });

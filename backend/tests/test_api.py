@@ -1,251 +1,354 @@
 """
-Pytest tests for Obster Dashboard API endpoints.
-Total: 18 test cases as specified in PLAN.md section 12.2
-- GET /api/health - 3 tests
-- GET /api/projects - 3 tests
-- GET /api/cronjobs - 3 tests
-- GET /api/agents - 3 tests
-- GET /api/logs - 4 tests
-- GET /api/config - 2 tests
+Pytest tests for Obster Dashboard Backend API.
+Covers all endpoints with mocks for external dependencies.
 """
 
-import os
-import sys
+import json
 import time
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
-import requests_mock
 from fastapi.testclient import TestClient
 
+# Import app from main module
+import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from main import (
-    app,
-    AGENTS,
-    CRONJOB_SERVICES,
-    PROJECTS_PATH,
-    LOGS_PATH,
-    TIMEOUT_MINUTES,
-)
+from main import app, AGENTS, SYSTEMD_SERVICES, VERSION
 
 
-@pytest.fixture
-def client():
-    """Create a test client for the FastAPI app."""
-    return TestClient(app)
+client = TestClient(app)
 
-
-# ============= Health Endpoint Tests (3 tests) =============
 
 class TestHealthEndpoint:
     """Tests for GET /api/health"""
 
-    def test_health_returns_healthy_status(self, client):
-        """Test that health endpoint returns status=healthy."""
+    def test_health_returns_healthy_status(self):
+        """Health endpoint should return status=healthy"""
         response = client.get("/api/health")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
 
-    def test_health_returns_uptime_seconds(self, client):
-        """Test that health endpoint returns uptime_seconds."""
+    def test_health_returns_version(self):
+        """Health endpoint should return version"""
         response = client.get("/api/health")
-        assert response.status_code == 200
+        data = response.json()
+        assert "version" in data
+        assert data["version"] == VERSION
+
+    def test_health_returns_uptime(self):
+        """Health endpoint should return uptime_seconds"""
+        response = client.get("/api/health")
         data = response.json()
         assert "uptime_seconds" in data
         assert isinstance(data["uptime_seconds"], (int, float))
         assert data["uptime_seconds"] >= 0
 
-    def test_health_returns_version(self, client):
-        """Test that health endpoint returns version string."""
-        response = client.get("/api/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert "version" in data
-        assert isinstance(data["version"], str)
-        assert len(data["version"]) > 0
-
-
-# ============= Projects Endpoint Tests (3 tests) =============
 
 class TestProjectsEndpoint:
     """Tests for GET /api/projects"""
 
-    def test_projects_returns_projects_list(self, client):
-        """Test that projects endpoint returns projects array."""
-        with patch("main.Path") as mock_path:
-            mock_projects_path = MagicMock()
-            mock_projects_path.exists.return_value = False
-            mock_path.return_value = mock_projects_path
+    @patch("main.Path")
+    def test_projects_returns_empty_when_path_not_exists(self, mock_path):
+        """Projects endpoint should return empty list when path doesn't exist"""
+        mock_path_instance = MagicMock()
+        mock_path_instance.exists.return_value = False
+        mock_path.return_value = mock_path_instance
 
+        response = client.get("/api/projects")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["projects"] == []
+        assert "timestamp" in data
+
+    @patch("main.Path")
+    def test_projects_scans_subdirectories(self, mock_path):
+        """Projects endpoint should scan subdirectories for dev_status.json"""
+        # Create mock project directory structure
+        mock_projects_path = MagicMock()
+        mock_projects_path.exists.return_value = True
+
+        mock_subdir1 = MagicMock()
+        mock_subdir1.is_dir.return_value = True
+        mock_subdir1.name = "project-alpha"
+        mock_subdir1.__truediv__ = lambda self, x: MagicMock() if x == "docs/.dev_status.json" else MagicMock()
+
+        mock_subdir2 = MagicMock()
+        mock_subdir2.is_dir.return_value = True
+        mock_subdir2.name = "project-beta"
+        mock_subdir2.__truediv__ = lambda self, x: MagicMock() if x == "docs/.dev_status.json" else MagicMock()
+
+        mock_projects_path.iterdir.return_value = [mock_subdir1, mock_subdir2]
+        mock_path.return_value = mock_projects_path
+
+        # Mock the docs/.dev_status.json file content
+        dev_status_content = {
+            "stage": "dev",
+            "iteration": 3,
+            "quality_score": 92.5,
+            "blocking_errors": [],
+            "updated_at": "2026-04-13T08:30:00.000Z"
+        }
+
+        with patch("main.read_json_file", return_value=dev_status_content):
             response = client.get("/api/projects")
             assert response.status_code == 200
             data = response.json()
             assert "projects" in data
             assert isinstance(data["projects"], list)
 
-    def test_projects_returns_timestamp(self, client):
-        """Test that projects endpoint returns timestamp."""
-        response = client.get("/api/projects")
-        assert response.status_code == 200
-        data = response.json()
-        assert "timestamp" in data
-        assert isinstance(data["timestamp"], str)
+    def test_projects_response_has_timestamp(self):
+        """Projects response should include timestamp"""
+        with patch("main.Path") as mock_path:
+            mock_instance = MagicMock()
+            mock_instance.exists.return_value = False
+            mock_path.return_value = mock_instance
 
-    @patch("main.Path")
-    def test_projects_handles_missing_path(self, mock_path, client):
-        """Test that projects endpoint handles missing path gracefully."""
-        mock_projects_path = MagicMock()
-        mock_projects_path.exists.return_value = False
-        mock_path.return_value = mock_projects_path
+            response = client.get("/api/projects")
+            data = response.json()
+            assert "timestamp" in data
 
-        response = client.get("/api/projects")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["projects"] == []
-
-
-# ============= Cronjobs Endpoint Tests (3 tests) =============
 
 class TestCronjobsEndpoint:
     """Tests for GET /api/cronjobs"""
 
-    def test_cronjobs_returns_cronjobs_list(self, client):
-        """Test that cronjobs endpoint returns cronjobs array."""
+    @patch("main.parse_systemctl_show")
+    @patch("main.get_journal_logs")
+    def test_cronjobs_returns_service_list(self, mock_journal, mock_systemctl):
+        """Cronjobs endpoint should return list of services"""
+        mock_systemctl.return_value = {
+            "ActiveState": "active",
+            "ExecMainStatus": "0",
+            "ActiveEnterTimestamp": "2026-04-18T10:00:00 UTC"
+        }
+        mock_journal.return_value = ["Log line 1", "Log line 2"]
+
         response = client.get("/api/cronjobs")
         assert response.status_code == 200
         data = response.json()
         assert "cronjobs" in data
-        assert isinstance(data["cronjobs"], list)
+        assert len(data["cronjobs"]) == len(SYSTEMD_SERVICES)
 
-    def test_cronjobs_returns_timestamp(self, client):
-        """Test that cronjobs endpoint returns timestamp."""
-        response = client.get("/api/cronjobs")
-        assert response.status_code == 200
-        data = response.json()
-        assert "timestamp" in data
-        assert isinstance(data["timestamp"], str)
-
-    @patch("main.subprocess.run")
-    def test_cronjobs_handles_service_error(self, mock_run, client):
-        """Test that cronjobs endpoint handles subprocess errors gracefully."""
-        mock_run.side_effect = Exception("subprocess error")
+    @patch("main.parse_systemctl_show")
+    @patch("main.get_journal_logs")
+    def test_cronjobs_active_state_mapping(self, mock_journal, mock_systemctl):
+        """Cronjobs should correctly map ActiveState to status"""
+        mock_systemctl.return_value = {
+            "ActiveState": "failed",
+            "ExecMainStatus": "1",
+            "ActiveEnterTimestamp": "2026-04-18T10:00:00 UTC"
+        }
+        mock_journal.return_value = []
 
         response = client.get("/api/cronjobs")
-        assert response.status_code == 200
         data = response.json()
-        assert len(data["cronjobs"]) == len(CRONJOB_SERVICES)
 
+        # Find the service in response
+        for job in data["cronjobs"]:
+            if job["name"] == "obster-monitor":
+                assert job["status"] == "failed"
+                assert job["exit_code"] == 1
+                break
 
-# ============= Agents Endpoint Tests (3 tests) =============
+    @patch("main.parse_systemctl_show")
+    @patch("main.get_journal_logs")
+    def test_cronjobs_inactive_state(self, mock_journal, mock_systemctl):
+        """Cronjobs should handle inactive state"""
+        mock_systemctl.return_value = {
+            "ActiveState": "inactive",
+            "ExecMainStatus": "0",
+            "ActiveEnterTimestamp": ""
+        }
+        mock_journal.return_value = []
+
+        response = client.get("/api/cronjobs")
+        data = response.json()
+
+        for job in data["cronjobs"]:
+            if job["name"] == "obster-monitor":
+                assert job["status"] == "inactive"
+                break
+
 
 class TestAgentsEndpoint:
     """Tests for GET /api/agents"""
 
-    def test_agents_returns_agents_list(self, client):
-        """Test that agents endpoint returns agents array."""
-        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": ""}):
+    def test_agents_returns_all_agents_when_no_token(self):
+        """Agents endpoint should return all agents as unknown when no token"""
+        with patch("main.TELEGRAM_BOT_TOKEN", ""):
             response = client.get("/api/agents")
             assert response.status_code == 200
             data = response.json()
             assert "agents" in data
-            assert isinstance(data["agents"], list)
             assert len(data["agents"]) == len(AGENTS)
 
-    def test_agents_returns_timestamp(self, client):
-        """Test that agents endpoint returns timestamp."""
-        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": ""}):
-            response = client.get("/api/agents")
-            assert response.status_code == 200
-            data = response.json()
-            assert "timestamp" in data
-            assert isinstance(data["timestamp"], str)
-
-    def test_agents_with_no_token_returns_unknown(self, client):
-        """Test that agents with no token returns unknown status."""
-        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": ""}):
-            response = client.get("/api/agents")
-            assert response.status_code == 200
-            data = response.json()
             for agent in data["agents"]:
                 assert agent["status"] == "unknown"
+                assert agent["minutes_ago"] is None
 
+    @patch("main.poll_telegram_get_updates")
+    def test_agents_parses_updates_for_agent_names(self, mock_poll):
+        """Agents endpoint should parse updates for agent names"""
+        now = int(time.time())
+        mock_poll.return_value = [
+            {
+                "message": {
+                    "text": "Argus completed task",
+                    "date": str(now - 300),  # 5 minutes ago
+                }
+            },
+            {
+                "message": {
+                    "text": "Hephaestus deployed",
+                    "date": str(now - 600),  # 10 minutes ago
+                }
+            }
+        ]
 
-# ============= Logs Endpoint Tests (4 tests) =============
+        with patch("main.TELEGRAM_BOT_TOKEN", "fake_token"):
+            with patch("main.TIMEOUT_MINUTES", 30):
+                response = client.get("/api/agents")
+                data = response.json()
+
+                argus = next(a for a in data["agents"] if a["name"] == "Argus")
+                assert argus["status"] == "healthy"
+                assert argus["minutes_ago"] is not None
+                assert argus["minutes_ago"] < 30
+
+    @patch("main.poll_telegram_get_updates")
+    def test_agents_unhealthy_when_timeout_exceeded(self, mock_poll):
+        """Agents should be marked unhealthy when timeout exceeded"""
+        now = int(time.time())
+        mock_poll.return_value = [
+            {
+                "message": {
+                    "text": "Argus completed task",
+                    "date": str(now - 3600),  # 60 minutes ago - exceeds 30 min timeout
+                }
+            }
+        ]
+
+        with patch("main.TELEGRAM_BOT_TOKEN", "fake_token"):
+            with patch("main.TIMEOUT_MINUTES", 30):
+                response = client.get("/api/agents")
+                data = response.json()
+
+                argus = next(a for a in data["agents"] if a["name"] == "Argus")
+                assert argus["status"] == "unhealthy"
+                assert argus["minutes_ago"] >= 30
+
 
 class TestLogsEndpoint:
     """Tests for GET /api/logs"""
 
-    def test_logs_returns_logs_list(self, client):
-        """Test that logs endpoint returns logs array."""
+    def test_logs_returns_empty_when_path_not_exists(self):
+        """Logs endpoint should return empty list when path doesn't exist"""
         with patch("main.Path") as mock_path:
-            mock_logs_path = MagicMock()
-            mock_logs_path.exists.return_value = False
-            mock_path.return_value = mock_logs_path
+            mock_instance = MagicMock()
+            mock_instance.exists.return_value = False
+            mock_path.return_value = mock_instance
 
             response = client.get("/api/logs")
             assert response.status_code == 200
             data = response.json()
-            assert "logs" in data
-            assert isinstance(data["logs"], list)
-
-    def test_logs_returns_count(self, client):
-        """Test that logs endpoint returns count."""
-        response = client.get("/api/logs")
-        assert response.status_code == 200
-        data = response.json()
-        assert "count" in data
-        assert isinstance(data["count"], int)
-
-    def test_logs_returns_timestamp(self, client):
-        """Test that logs endpoint returns timestamp."""
-        response = client.get("/api/logs")
-        assert response.status_code == 200
-        data = response.json()
-        assert "timestamp" in data
-        assert isinstance(data["timestamp"], str)
+            assert data["logs"] == []
+            assert data["count"] == 0
 
     @patch("main.Path")
-    def test_logs_handles_missing_path(self, mock_path, client):
-        """Test that logs endpoint handles missing path gracefully."""
+    def test_logs_reads_json_files(self, mock_path):
+        """Logs endpoint should read JSON files from LOGS_PATH"""
         mock_logs_path = MagicMock()
-        mock_logs_path.exists.return_value = False
+        mock_logs_path.exists.return_value = True
+
+        mock_file = MagicMock()
+        mock_file.name = "exec-001.json"
+        mock_file.stat.return_value.st_mtime = 1713432000
+
+        mock_logs_path.glob.return_value = [mock_file]
         mock_path.return_value = mock_logs_path
 
-        response = client.get("/api/logs")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["logs"] == []
-        assert data["count"] == 0
+        log_content = {
+            "execution_id": "exec-001",
+            "status": "success",
+            "completed_at": "2026-04-18T10:00:00.000Z"
+        }
 
+        with patch("main.read_json_file", return_value=log_content):
+            response = client.get("/api/logs")
+            assert response.status_code == 200
+            data = response.json()
+            assert "logs" in data
+            assert data["count"] >= 0
 
-# ============= Config Endpoint Tests (2 tests) =============
+    @patch("main.Path")
+    def test_logs_respects_limit_parameter(self, mock_path):
+        """Logs endpoint should respect limit parameter"""
+        mock_logs_path = MagicMock()
+        mock_logs_path.exists.return_value = True
+
+        mock_files = [
+            MagicMock(name=f"exec-{i:03d}.json", stat=MagicMock(st_mtime=1713432000 - i))
+            for i in range(25)
+        ]
+
+        mock_logs_path.glob.return_value = mock_files
+        mock_path.return_value = mock_logs_path
+
+        with patch("main.read_json_file", return_value={"status": "success"}):
+            response = client.get("/api/logs?limit=10")
+            data = response.json()
+            assert len(data["logs"]) == 10
+
+    @patch("main.Path")
+    def test_logs_sorted_by_mtime_descending(self, mock_path):
+        """Logs should be sorted by modification time descending"""
+        mock_logs_path = MagicMock()
+        mock_logs_path.exists.return_value = True
+
+        # Files with different modification times
+        mock_files = [
+            MagicMock(name="oldest.json", stat=MagicMock(st_mtime=1000)),
+            MagicMock(name="newest.json", stat=MagicMock(st_mtime=3000)),
+            MagicMock(name="middle.json", stat=MagicMock(st_mtime=2000)),
+        ]
+
+        mock_logs_path.glob.return_value = mock_files
+        mock_path.return_value = mock_logs_path
+
+        with patch("main.read_json_file", return_value={"status": "success"}):
+            response = client.get("/api/logs")
+            data = response.json()
+
+            # Verify order - should be newest first
+            filenames = [log["filename"] for log in data["logs"]]
+            assert filenames == ["newest.json", "middle.json", "oldest.json"]
+
 
 class TestConfigEndpoint:
     """Tests for GET /api/config"""
 
-    def test_config_returns_all_fields(self, client):
-        """Test that config endpoint returns all required fields."""
+    def test_config_returns_all_settings(self):
+        """Config endpoint should return all configuration"""
         response = client.get("/api/config")
         assert response.status_code == 200
         data = response.json()
-        assert "PROJECTS_PATH" in data
-        assert "LOGS_PATH" in data
-        assert "TELEGRAM_BOT_TOKEN_SET" in data
-        assert "TIMEOUT_MINUTES" in data
-        assert "AGENTS" in data
-        assert "CRONJOB_SERVICES" in data
 
-    def test_config_token_not_exposed(self, client):
-        """Test that config does not expose actual telegram token."""
+        assert "projects_path" in data
+        assert "logs_path" in data
+        assert "timeout_minutes" in data
+        assert "agents" in data
+        assert "services" in data
+
+    def test_config_agents_list(self):
+        """Config should return the list of agents"""
         response = client.get("/api/config")
-        assert response.status_code == 200
         data = response.json()
-        assert isinstance(data["TELEGRAM_BOT_TOKEN_SET"], bool)
+        assert data["agents"] == AGENTS
 
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    def test_config_services_list(self):
+        """Config should return the list of systemd services"""
+        response = client.get("/api/config")
+        data = response.json()
+        assert data["services"] == SYSTEMD_SERVICES

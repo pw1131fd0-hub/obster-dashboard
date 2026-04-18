@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AgentHealthPanel } from '../../components/AgentHealthPanel';
+import AgentHealthPanel from '../../components/AgentHealthPanel';
 import { setupFetchMock } from '../testUtils';
 
 describe('AgentHealthPanel', () => {
