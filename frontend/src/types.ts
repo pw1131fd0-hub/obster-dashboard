@@ -30,6 +30,9 @@ export interface LogEntry {
   content: object;
 }
 
+// Alias for backward compatibility
+export type ExecutionLog = LogEntry;
+
 export interface ProjectResponse {
   projects: Project[];
   timestamp: string;

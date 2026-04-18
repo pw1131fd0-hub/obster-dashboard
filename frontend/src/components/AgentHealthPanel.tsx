@@ -1,4 +1,5 @@
 import { useDashboard } from '../context/DashboardContext';
+import type { Agent } from '../types';
 
 function getStatusIndicator(status: string): { color: string; label: string } {
   switch (status) {
@@ -27,9 +28,9 @@ export function AgentHealthPanel() {
     );
   }
 
-  const agentMap = new Map(agents.map((a) => [a.name, a]));
-  const displayAgents = AGENT_NAMES.map((name) => {
-    return agentMap.get(name) || { name, status: 'unknown', last_response: null, minutes_ago: null };
+  const agentMap = new Map(agents.map((a: Agent) => [a.name, a]));
+  const displayAgents: Agent[] = AGENT_NAMES.map((name) => {
+    return agentMap.get(name) || { name, status: 'unknown' as const, last_response: null, minutes_ago: null };
   });
 
   return (

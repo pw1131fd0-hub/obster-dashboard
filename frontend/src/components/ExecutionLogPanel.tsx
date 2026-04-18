@@ -4,7 +4,7 @@ import { useDashboard } from '../context/DashboardContext';
 interface LogCardProps {
   filename: string;
   timestamp: string;
-  content: Record<string, unknown>;
+  content: object;
 }
 
 function LogCard({ filename, timestamp, content }: LogCardProps) {

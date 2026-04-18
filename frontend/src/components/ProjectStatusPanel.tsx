@@ -1,17 +1,11 @@
 import { useDashboard } from '../context/DashboardContext';
+import type { Project } from '../types';
 
 const stageColors: Record<string, string> = {
   prd: 'bg-blue-600',
   dev: 'bg-yellow-500',
   test: 'bg-orange-500',
   security: 'bg-red-600',
-};
-
-const stageTextColors: Record<string, string> = {
-  prd: 'text-blue-400',
-  dev: 'text-yellow-400',
-  test: 'text-orange-400',
-  security: 'text-red-400',
 };
 
 export function ProjectStatusPanel() {
@@ -33,7 +27,7 @@ export function ProjectStatusPanel() {
         <div className="text-text-muted">No projects found</div>
       ) : (
         <div className="space-y-3">
-          {projects.map((project) => {
+          {projects.map((project: Project) => {
             const isQualityLow = project.quality_score < 85;
             return (
               <div key={project.path} className="border border-gray-700 rounded p-3">
@@ -62,7 +56,7 @@ export function ProjectStatusPanel() {
                   <div className="mt-2">
                     <span className="text-sm text-error font-medium">Blocking Errors:</span>
                     <ul className="mt-1 text-sm text-error">
-                      {project.blocking_errors.map((error, idx) => (
+                      {project.blocking_errors.map((error: string, idx: number) => (
                         <li key={idx} className="flex items-start">
                           <span className="mr-1">•</span>
                           <span>{error}</span>

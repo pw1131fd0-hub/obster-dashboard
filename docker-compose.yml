@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   nginx:
     build:
@@ -7,9 +6,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
+    volumes:
+      - /var/run/dbus:/var/run/dbus:ro
+      - /run/systemd:/run/systemd:ro
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     restart: unless-stopped
-    networks:
-      - obster-network
 
   backend:
     build:
@@ -18,10 +20,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - /var/run/dbus:/var/run/dbus:ro
-      - /run/systemd:/run/systemd:ro
       - /home/crawd_user/project:/home/crawd_user/project:ro
       - /home/crawd_user/.openclaw/workspace/logs:/home/crawd_user/.openclaw/workspace/logs:ro
+      - /var/run/dbus:/var/run/dbus:ro
+      - /run/systemd:/run/systemd:ro
     environment:
       - PROJECTS_PATH=/home/crawd_user/project
       - LOGS_PATH=/home/crawd_user/.openclaw/workspace/logs/executions
@@ -29,9 +31,3 @@ services:
       - TIMEOUT_MINUTES=30
     restart: unless-stopped
     privileged: true
-    networks:
-      - obster-network
-
-networks:
-  obster-network:
-    driver: bridge

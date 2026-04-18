@@ -17,6 +17,13 @@ interface DashboardContextValue {
   state: DashboardState;
   fetchData: () => void;
   refresh: () => void;
+  projects: DashboardState['projects'];
+  cronjobs: DashboardState['cronjobs'];
+  agents: DashboardState['agents'];
+  logs: DashboardState['logs'];
+  loading: boolean;
+  error: string | null;
+  lastUpdated: string | null;
 }
 
 const initialState: DashboardState = {
@@ -109,7 +116,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   return (
-    <DashboardContext.Provider value={{ state, fetchData, refresh }}>
+    <DashboardContext.Provider
+      value={{
+        state,
+        fetchData,
+        refresh,
+        projects: state.projects,
+        cronjobs: state.cronjobs,
+        agents: state.agents,
+        logs: state.logs,
+        loading: state.loading,
+        error: state.error,
+        lastUpdated: state.lastUpdated,
+      }}
+    >
       {children}
     </DashboardContext.Provider>
   );

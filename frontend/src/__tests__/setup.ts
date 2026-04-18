@@ -1,5 +1,12 @@
 // Ensure React uses development mode in tests - must be before React imports
-process.env.NODE_ENV = 'development';
+import { beforeAll } from 'vitest';
+
+beforeAll(() => {
+  Object.defineProperty(global, 'process', {
+    value: { ...global.process, ENV: 'development' },
+    writable: true,
+  });
+});
 
 import '@testing-library/jest-dom';
 import { expect, afterEach } from 'vitest';

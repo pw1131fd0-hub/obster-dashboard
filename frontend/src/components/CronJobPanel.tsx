@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
+import type { CronJob } from '../types';
 
 function getStatusColor(status: string): string {
   switch (status) {
@@ -30,7 +31,6 @@ function LogEntry({ logs }: LogEntryProps) {
   const [expanded, setExpanded] = useState(false);
   const maxLines = 5;
   const displayLogs = expanded ? logs : logs.slice(0, maxLines);
-  const hasMore = logs.length > maxLines;
 
   return (
     <div className="mt-2">
@@ -70,7 +70,7 @@ export function CronJobPanel() {
         <div className="text-text-muted">No cron jobs found</div>
       ) : (
         <div className="space-y-3">
-          {cronjobs.map((job) => (
+          {cronjobs.map((job: CronJob) => (
             <div key={job.name} className="border border-gray-700 rounded p-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-text">{job.name}</span>
