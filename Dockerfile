@@ -6,7 +6,7 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-# Stage 2: Production nginx
+# Stage 2: Production image with nginx
 FROM nginx:alpine
 COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf

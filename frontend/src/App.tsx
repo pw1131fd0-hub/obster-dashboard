@@ -1,11 +1,35 @@
+import { useState, useEffect, useCallback } from 'react';
 import { useDashboard } from './context/DashboardContext';
-import ProjectStatusPanel from './components/ProjectStatusPanel';
-import CronJobPanel from './components/CronJobPanel';
-import AgentHealthPanel from './components/AgentHealthPanel';
-import ExecutionLogPanel from './components/ExecutionLogPanel';
+import { ProjectStatusPanel } from './components/ProjectStatusPanel';
+import { CronJobPanel } from './components/CronJobPanel';
+import { AgentHealthPanel } from './components/AgentHealthPanel';
+import { ExecutionLogPanel } from './components/ExecutionLogPanel';
+
+const REFRESH_INTERVAL = 30;
 
 function App() {
-  const { state, refresh } = useDashboard();
+  const { state, fetchData } = useDashboard();
+  const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
+
+  const handleRefresh = useCallback(() => {
+    void fetchData();
+    setCountdown(REFRESH_INTERVAL);
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (!state.loading && countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown, state.loading]);
+
+  useEffect(() => {
+    if (!state.loading) {
+      setCountdown(REFRESH_INTERVAL);
+    }
+  }, [state.loading, state.lastUpdated]);
 
   const formatLastUpdated = (date: Date | null): string => {
     if (!date) return 'Never';
@@ -16,17 +40,30 @@ function App() {
     <div className="min-h-screen bg-primary text-text flex flex-col">
       <header className="bg-secondary border-b border-slate-700 px-6 py-4">
         <div className="container mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold">Obster Dashboard</h1>
-          <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-xl font-bold">🦞 OpenClaw Dashboard</h1>
+            <p className="text-sm text-text-muted">小龍蝦系統監控儀表板 | VPS: srv1318420</p>
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  state.loading ? 'bg-warning animate-pulse' : 'bg-success'
+                }`}
+              />
+              <span className="text-sm text-text-muted">
+                {state.loading ? 'Refreshing...' : `Next in ${countdown}s`}
+              </span>
+            </div>
             <span className="text-sm text-text-muted">
-              Last updated: {formatLastUpdated(state.lastUpdated)}
+              Last: {formatLastUpdated(state.lastUpdated)}
             </span>
             <button
-              onClick={refresh}
+              onClick={handleRefresh}
               disabled={state.loading}
-              className="px-4 py-2 bg-accent hover:bg-blue-600 disabled:bg-slate-600 rounded-lg text-sm font-medium transition-colors"
+              className="px-4 py-2 bg-accent hover:bg-blue-600 disabled:bg-slate-600 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
             >
-              {state.loading ? 'Refreshing...' : 'Refresh'}
+              重新整理
             </button>
           </div>
         </div>
@@ -35,6 +72,12 @@ function App() {
       {state.error && (
         <div role="alert" className="bg-error/20 border border-error text-error px-6 py-3">
           <strong>Error:</strong> {state.error}
+          <button
+            onClick={handleRefresh}
+            className="ml-4 underline hover:no-underline focus:outline-none"
+          >
+            重新整理
+          </button>
         </div>
       )}
 
@@ -49,7 +92,7 @@ function App() {
 
       <footer className="bg-secondary border-t border-slate-700 px-6 py-3">
         <div className="container mx-auto text-center text-sm text-text-muted">
-          Obster Dashboard v1.0.0
+          OpenClaw Dashboard v1.0.0 | Docker Container
         </div>
       </footer>
     </div>

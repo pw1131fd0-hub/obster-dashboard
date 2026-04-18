@@ -1,16 +1,9 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import type { Project, CronJob, Agent, LogEntry, DashboardState } from '../types';
-
-type DashboardAction =
-  | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
-  | { type: 'FETCH_ERROR'; error: string }
-  | { type: 'SET_LAST_UPDATED'; date: Date };
+import type { DashboardState, DashboardAction, Project, CronJob, Agent, ExecutionLog } from '../types';
 
 interface DashboardContextType {
   state: DashboardState;
   fetchData: () => Promise<void>;
-  refresh: () => void;
 }
 
 const initialState: DashboardState = {
@@ -28,11 +21,14 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
     case 'FETCH_START':
       return { ...state, loading: true, error: null };
     case 'FETCH_SUCCESS':
-      return { ...state, ...action.payload, loading: false, lastUpdated: new Date() };
+      return {
+        ...state,
+        ...action.payload,
+        loading: false,
+        lastUpdated: new Date(),
+      };
     case 'FETCH_ERROR':
       return { ...state, loading: false, error: action.error };
-    case 'SET_LAST_UPDATED':
-      return { ...state, lastUpdated: action.date };
     default:
       return state;
   }
@@ -45,23 +41,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (): Promise<void> => {
     dispatch({ type: 'FETCH_START' });
     try {
-      const [healthRes, projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/health`),
+      const [projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/projects`),
         fetch(`${API_BASE_URL}/cronjobs`),
         fetch(`${API_BASE_URL}/agents`),
         fetch(`${API_BASE_URL}/logs`),
       ]);
 
-      if (!healthRes.ok || !projectsRes.ok || !cronjobsRes.ok || !agentsRes.ok || !logsRes.ok) {
-        throw new Error('API request failed');
-      }
-
-      const [health, projects, cronjobs, agents, logs] = await Promise.all([
-        healthRes.json(),
+      const [projectsData, cronjobsData, agentsData, logsData] = await Promise.all([
         projectsRes.json(),
         cronjobsRes.json(),
         agentsRes.json(),
@@ -71,37 +61,38 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       dispatch({
         type: 'FETCH_SUCCESS',
         payload: {
-          projects: projects.projects || [],
-          cronjobs: cronjobs.cronjobs || [],
-          agents: agents.agents || [],
-          logs: logs.logs || [],
+          projects: (projectsData.projects || []) as Project[],
+          cronjobs: (cronjobsData.cronjobs || []) as CronJob[],
+          agents: (agentsData.agents || []) as Agent[],
+          logs: (logsData.logs || []) as ExecutionLog[],
         },
       });
     } catch (err) {
-      dispatch({ type: 'FETCH_ERROR', error: err instanceof Error ? err.message : 'Unknown error' });
+      dispatch({
+        type: 'FETCH_ERROR',
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 30000);
+    void fetchData();
+    const interval = setInterval(() => {
+      void fetchData();
+    }, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const refresh = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
-
   return (
-    <DashboardContext.Provider value={{ state, fetchData, refresh }}>
+    <DashboardContext.Provider value={{ state, fetchData }}>
       {children}
     </DashboardContext.Provider>
   );
 }
 
-export function useDashboard() {
+export function useDashboard(): DashboardContextType {
   const context = useContext(DashboardContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useDashboard must be used within a DashboardProvider');
   }
   return context;

@@ -288,10 +288,13 @@ class TestLogsEndpoint:
         mock_logs_path = MagicMock()
         mock_logs_path.exists.return_value = True
 
-        mock_files = [
-            MagicMock(name=f"exec-{i:03d}.json", stat=MagicMock(st_mtime=1713432000 - i))
-            for i in range(25)
-        ]
+        # Create mock files with proper stat() to support sorting
+        mock_files = []
+        for i in range(25):
+            mock_file = MagicMock()
+            mock_file.name = f"exec-{i:03d}.json"
+            mock_file.stat.return_value.st_mtime = 1713432000 - i
+            mock_files.append(mock_file)
 
         mock_logs_path.glob.return_value = mock_files
         mock_path.return_value = mock_logs_path
@@ -308,11 +311,12 @@ class TestLogsEndpoint:
         mock_logs_path.exists.return_value = True
 
         # Files with different modification times
-        mock_files = [
-            MagicMock(name="oldest.json", stat=MagicMock(st_mtime=1000)),
-            MagicMock(name="newest.json", stat=MagicMock(st_mtime=3000)),
-            MagicMock(name="middle.json", stat=MagicMock(st_mtime=2000)),
-        ]
+        mock_files = []
+        for name, mtime in [("oldest.json", 1000), ("middle.json", 2000), ("newest.json", 3000)]:
+            mock_file = MagicMock()
+            mock_file.name = name
+            mock_file.stat.return_value.st_mtime = mtime
+            mock_files.append(mock_file)
 
         mock_logs_path.glob.return_value = mock_files
         mock_path.return_value = mock_logs_path

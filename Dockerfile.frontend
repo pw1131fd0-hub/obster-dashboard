@@ -1,7 +1,7 @@
-FROM node:20-alpine
-WORKDIR /app
+# Frontend-only build for testing
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
-EXPOSE 5173
-CMD ["npm", "run", "dev"]
+RUN npm run build
