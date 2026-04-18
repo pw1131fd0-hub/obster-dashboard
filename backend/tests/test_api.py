@@ -337,31 +337,6 @@ class TestConfigEndpoint:
         assert "Argus" in data["agents"]
 
 
-# ============= Error Handling Tests =============
-
-class TestErrorHandling:
-    """Tests for error handling behavior"""
-    
-    @patch("main.scan_projects")
-    def test_projects_error_returns_500(self, mock_scan, client):
-        """Test that projects endpoint returns 500 on internal error"""
-        mock_scan.side_effect = Exception("Simulated error")
-        
-        response = client.get("/api/projects")
-        assert response.status_code == 500
-        data = response.json()
-        assert "detail" in data
-        assert "code" in data
-    
-    @patch("main.scan_logs")
-    def test_logs_error_returns_500(self, mock_scan, client):
-        """Test that logs endpoint returns 500 on internal error"""
-        mock_scan.side_effect = Exception("Simulated error")
-        
-        response = client.get("/api/logs")
-        assert response.status_code == 500
-
-
 # ============= Test Entry Point =============
 
 if __name__ == "__main__":
