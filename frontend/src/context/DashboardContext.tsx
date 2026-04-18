@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import type { DashboardState, DashboardAction, Project, CronJob, Agent, ExecutionLog } from '../types';
 
 interface DashboardContextType {

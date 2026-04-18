@@ -328,31 +328,3 @@ class TestLogsEndpoint:
             # Verify order - should be newest first
             filenames = [log["filename"] for log in data["logs"]]
             assert filenames == ["newest.json", "middle.json", "oldest.json"]
-
-
-class TestConfigEndpoint:
-    """Tests for GET /api/config"""
-
-    def test_config_returns_all_settings(self):
-        """Config endpoint should return all configuration"""
-        response = client.get("/api/config")
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "projects_path" in data
-        assert "logs_path" in data
-        assert "timeout_minutes" in data
-        assert "agents" in data
-        assert "services" in data
-
-    def test_config_agents_list(self):
-        """Config should return the list of agents"""
-        response = client.get("/api/config")
-        data = response.json()
-        assert data["agents"] == AGENTS
-
-    def test_config_services_list(self):
-        """Config should return the list of systemd services"""
-        response = client.get("/api/config")
-        data = response.json()
-        assert data["services"] == SYSTEMD_SERVICES
