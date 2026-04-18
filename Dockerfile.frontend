@@ -1,8 +1,22 @@
-FROM node:20-alpine
+# Frontend-only build using node:20-alpine
+FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
+
+# Copy frontend source
 COPY frontend/ /app/frontend/
+
+# Install dependencies and build
 RUN npm install && npm run build
 
-FROM scratch
-COPY --from=0 /app/frontend/dist ./dist
+# Output is in /app/frontend/dist
+
+FROM nginx:alpine
+
+# Copy built files from builder stage
+COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

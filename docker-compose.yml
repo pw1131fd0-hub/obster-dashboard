@@ -10,7 +10,11 @@ services:
     volumes:
       - /var/run/dbus:/var/run/dbus:ro
       - /run/systemd:/run/systemd:ro
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     restart: unless-stopped
+    depends_on:
+      - backend
 
   backend:
     build:
