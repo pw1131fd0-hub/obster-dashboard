@@ -7,18 +7,15 @@ import os
 import time
 import subprocess
 import logging
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
-from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
-# Load .env file if present
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -159,7 +156,6 @@ def get_projects():
                 continue
 
             try:
-                import json
                 with open(dev_status_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
@@ -413,7 +409,6 @@ def get_logs(limit: int = Query(default=20, ge=1, le=100)):
         # Take the first `limit` files
         for mtime, json_file in json_files[:limit]:
             try:
-                import json
                 with open(json_file, "r", encoding="utf-8") as f:
                     content = json.load(f)
 

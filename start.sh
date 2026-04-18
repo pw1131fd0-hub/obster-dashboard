@@ -1,133 +1,164 @@
 #!/bin/bash
 set -e
 
-# Obster Dashboard - Startup Script
+# Obster Dashboard - Development Mode Startup Script
 # Usage:
-#   ./start.sh development   - Run in development mode (default)
-#   ./start.sh production     - Run in production mode (Docker)
+#   ./start.sh dev          - Run in development mode (default)
+#   ./start.sh docker      - Run full docker-compose stack
+#   ./start.sh backend      - Start only backend service
+#   ./start.sh frontend     - Start only frontend dev server
+#   ./start.sh stop         - Stop all running services
+#   ./start.sh logs         - View backend logs
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-MODE="${1:-development}"
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
-show_usage() {
-    echo "Usage: $0 [development|production]"
+usage() {
+    echo "Usage: $0 [option]"
     echo ""
-    echo "Modes:"
-    echo "  development  - Run backend with uvicorn and frontend dev server"
-    echo "  production    - Build and run with Docker Compose"
+    echo "Options:"
+    echo "  dev          Start in development mode (default)"
+    echo "  docker       Start full docker-compose stack"
+    echo "  backend      Start only backend service"
+    echo "  frontend     Start only frontend dev server"
+    echo "  stop         Stop all running services"
+    echo "  logs         View backend logs"
+    echo "  help         Show this help message"
     echo ""
-    echo "Environment variables required for production:"
-    echo "  TELEGRAM_BOT_TOKEN - Telegram bot token for agent health checks"
-    echo ""
-    echo "Examples:"
-    echo "  $0                    # Run in development mode"
-    echo "  $0 development        # Same as above"
-    echo "  $0 production         # Build and run with Docker"
 }
 
-start_development() {
-    echo "Starting Obster Dashboard in DEVELOPMENT mode..."
-    echo ""
-
-    # Check for required environment variables
-    if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
-        echo "WARNING: TELEGRAM_BOT_TOKEN is not set"
-        echo "Agent health checks will return 'unknown' status"
-        echo ""
+check_prerequisites() {
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}Error: Docker is not installed${NC}"
+        exit 1
     fi
 
-    # Set defaults for development
+    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+        echo -e "${RED}Error: Docker Compose is not installed${NC}"
+        exit 1
+    fi
+
+    # Check if .env file exists
+    if [ ! -f "$SCRIPT_DIR/.env" ]; then
+        echo -e "${YELLOW}Warning: .env file not found. Copy .env.example to .env and configure it.${NC}"
+    fi
+}
+
+start_docker() {
+    echo -e "${GREEN}Starting Obster Dashboard with Docker Compose...${NC}"
+    check_prerequisites
+
+    # Load environment variables from .env if it exists
+    if [ -f "$SCRIPT_DIR/.env" ]; then
+        set -a
+        source "$SCRIPT_DIR/.env"
+        set +a
+    fi
+
+    docker compose up -d
+    echo -e "${GREEN}Dashboard is now running at http://localhost${NC}"
+}
+
+start_backend_dev() {
+    echo -e "${GREEN}Starting backend in development mode...${NC}"
+
+    cd "$SCRIPT_DIR/backend"
+    pip install -r requirements.txt 2>/dev/null || true
+
+    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+}
+
+start_frontend_dev() {
+    echo -e "${GREEN}Starting frontend development server...${NC}"
+
+    cd "$SCRIPT_DIR/frontend"
+    npm install 2>/dev/null || true
+    npm run dev
+}
+
+start_full_dev() {
+    echo -e "${GREEN}Starting in development mode...${NC}"
+
+    # Set defaults
     export PROJECTS_PATH="${PROJECTS_PATH:-/home/crawd_user/project}"
     export LOGS_PATH="${LOGS_PATH:-/home/crawd_user/.openclaw/workspace/logs/executions}"
     export TIMEOUT_MINUTES="${TIMEOUT_MINUTES:-30}"
 
-    echo "Configuration:"
-    echo "  PROJECTS_PATH: $PROJECTS_PATH"
-    echo "  LOGS_PATH: $LOGS_PATH"
-    echo "  TIMEOUT_MINUTES: $TIMEOUT_MINUTES"
-    echo ""
-
-    # Check if frontend dependencies are installed
-    if [ ! -d "frontend/node_modules" ]; then
-        echo "Installing frontend dependencies..."
-        (cd frontend && npm install)
-    fi
-
-    # Check if backend dependencies are installed
-    if [ ! -d "backend/venv" ] && [ ! -d "backend/__pycache__" ]; then
-        echo "Installing backend dependencies..."
-        (cd backend && pip install -r requirements.txt)
-    fi
-
-    echo "Starting services..."
+    echo -e "Configuration:"
+    echo -e "  PROJECTS_PATH: ${PROJECTS_PATH}"
+    echo -e "  LOGS_PATH: ${LOGS_PATH}"
+    echo -e "  TIMEOUT_MINUTES: ${TIMEOUT_MINUTES}"
     echo ""
 
     # Start backend in background
-    echo "Starting backend on port 8000..."
-    cd backend
-    python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+    echo -e "${YELLOW}Starting backend on port 8000...${NC}"
+    cd "$SCRIPT_DIR/backend"
+    uvicorn main:app --host 0.0.0.0 --port 8000 &
     BACKEND_PID=$!
-    cd ..
+
+    sleep 2
 
     # Start frontend dev server in background
-    echo "Starting frontend dev server on port 5173..."
-    (cd frontend && npm run dev) &
+    echo -e "${YELLOW}Starting frontend on port 5173...${NC}"
+    cd "$SCRIPT_DIR/frontend"
+    npm run dev &
     FRONTEND_PID=$!
 
     echo ""
-    echo "Services started:"
-    echo "  Backend API:  http://localhost:8000"
-    echo "  Frontend:     http://localhost:5173"
-    echo "  API Docs:     http://localhost:8000/docs"
-    echo ""
-    echo "Press Ctrl+C to stop all services"
+    echo -e "${GREEN}Development servers started!${NC}"
+    echo -e "  Backend: http://localhost:8000"
+    echo -e "  Frontend: http://localhost:5173"
+    echo -e ""
+    echo -e "Press Ctrl+C to stop"
 
-    # Wait for either process to exit
-    wait $BACKEND_PID $FRONTEND_PID
+    # Wait for processes
+    trap "kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT TERM
+    wait
 }
 
-start_production() {
-    echo "Starting Obster Dashboard in PRODUCTION mode..."
-    echo ""
-
-    # Check for required environment variables
-    if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
-        echo "ERROR: TELEGRAM_BOT_TOKEN is required for production"
-        echo "Set it with: export TELEGRAM_BOT_TOKEN=your_token_here"
-        exit 1
-    fi
-
-    # Build and start with docker-compose
-    docker-compose build --no-cache
-    docker-compose up -d
-
-    echo ""
-    echo "Services started:"
-    echo "  Dashboard:    http://localhost:80"
-    echo "  Backend API:  http://localhost:8000"
-    echo "  API Docs:     http://localhost:8000/docs"
-    echo ""
-    echo "View logs with: docker-compose logs -f"
-    echo "Stop with:       docker-compose down"
+stop_services() {
+    echo -e "${YELLOW}Stopping services...${NC}"
+    docker compose down 2>/dev/null || true
+    pkill -f "uvicorn main:app" 2>/dev/null || true
+    pkill -f "vite" 2>/dev/null || true
+    echo -e "${GREEN}Services stopped${NC}"
 }
 
-case "$MODE" in
-    development|dev|d)
-        start_development
+view_logs() {
+    docker compose logs -f backend
+}
+
+case "${1:-dev}" in
+    dev)
+        start_full_dev
         ;;
-    production|prod|p)
-        start_production
+    docker)
+        start_docker
         ;;
-    help|-h|--help)
-        show_usage
-        exit 0
+    backend)
+        start_backend_dev
+        ;;
+    frontend)
+        start_frontend_dev
+        ;;
+    stop)
+        stop_services
+        ;;
+    logs)
+        view_logs
+        ;;
+    help|--help|-h)
+        usage
         ;;
     *)
-        echo "Unknown mode: $MODE"
-        echo ""
-        show_usage
+        echo -e "${RED}Unknown option: $1${NC}"
+        usage
         exit 1
         ;;
 esac
