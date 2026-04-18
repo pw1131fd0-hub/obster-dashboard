@@ -1,9 +1,3 @@
-export interface HealthResponse {
-  status: string;
-  uptime_seconds: number;
-  version: string;
-}
-
 export interface Project {
   name: string;
   path: string;
@@ -14,22 +8,12 @@ export interface Project {
   updated_at: string;
 }
 
-export interface ProjectResponse {
-  projects: Project[];
-  timestamp: string;
-}
-
 export interface CronJob {
   name: string;
   status: 'active' | 'inactive' | 'failed' | 'error' | 'timeout';
   last_run: string | null;
   exit_code: number | null;
   recent_logs: string[];
-}
-
-export interface CronJobResponse {
-  cronjobs: CronJob[];
-  timestamp: string;
 }
 
 export interface Agent {
@@ -39,16 +23,26 @@ export interface Agent {
   minutes_ago: number | null;
 }
 
-export interface AgentResponse {
-  agents: Agent[];
-  timestamp: string;
-}
-
 export interface LogEntry {
   filename: string;
   path: string;
   timestamp: string;
-  content: Record<string, unknown>;
+  content: object;
+}
+
+export interface ProjectResponse {
+  projects: Project[];
+  timestamp: string;
+}
+
+export interface CronJobResponse {
+  cronjobs: CronJob[];
+  timestamp: string;
+}
+
+export interface AgentResponse {
+  agents: Agent[];
+  timestamp: string;
 }
 
 export interface LogResponse {
@@ -69,5 +63,5 @@ export interface DashboardState {
 
 export type DashboardAction =
   | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Partial<Omit<DashboardState, 'loading' | 'error' | 'lastUpdated'>> }
+  | { type: 'FETCH_SUCCESS'; payload: Omit<DashboardState, 'loading' | 'error' | 'lastUpdated'> }
   | { type: 'FETCH_ERROR'; payload: string };
