@@ -1,11 +1,10 @@
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react'
 import type { DashboardData } from '../types'
 
 type Action =
   | { type: 'FETCH_START' }
   | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardData> }
   | { type: 'FETCH_ERROR'; payload: string }
-  | { type: 'SET_LOADING'; payload: boolean }
 
 const initialState: DashboardData = {
   projects: [],
@@ -21,13 +20,17 @@ const initialState: DashboardData = {
 function dashboardReducer(state: DashboardData, action: Action): DashboardData {
   switch (action.type) {
     case 'FETCH_START':
-      return { ...state, error: null }
+      return { ...state, error: null, loading: true }
     case 'FETCH_SUCCESS':
-      return { ...state, ...action.payload, lastUpdated: new Date().toLocaleTimeString('zh-TW'), error: null }
+      return {
+        ...state,
+        ...action.payload,
+        lastUpdated: new Date().toLocaleTimeString('zh-TW'),
+        error: null,
+        loading: false,
+      }
     case 'FETCH_ERROR':
-      return { ...state, error: action.payload }
-    case 'SET_LOADING':
-      return { ...state, loading: action.payload }
+      return { ...state, error: action.payload, loading: false }
     default:
       return state
   }
@@ -41,19 +44,32 @@ interface DashboardContextType {
 
 const DashboardContext = createContext<DashboardContextType | null>(null)
 
+const REFRESH_INTERVAL = 30000
+
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState)
+  const intervalRef = useRef<number | null>(null)
+  const refreshRef = useRef<() => void>(() => {})
 
   const fetchData = useCallback(async () => {
     dispatch({ type: 'FETCH_START' })
     try {
-      const [projects, cronjobs, agents, logs, health] = await Promise.all([
-        fetch('/api/projects').then(r => r.json()).catch(() => ({ projects: [] })),
-        fetch('/api/cronjobs').then(r => r.json()).catch(() => ({ cronjobs: [] })),
-        fetch('/api/agents').then(r => r.json()).catch(() => ({ agents: [] })),
-        fetch('/api/logs').then(r => r.json()).catch(() => ({ logs: [] })),
-        fetch('/api/health').then(r => r.json()).catch(() => null),
+      const [projectsRes, cronjobsRes, agentsRes, logsRes, healthRes] = await Promise.all([
+        fetch('/api/projects'),
+        fetch('/api/cronjobs'),
+        fetch('/api/agents'),
+        fetch('/api/logs'),
+        fetch('/api/health'),
       ])
+
+      const [projects, cronjobs, agents, logs, health] = await Promise.all([
+        projectsRes.json().catch(() => ({ projects: [] })),
+        cronjobsRes.json().catch(() => ({ cronjobs: [] })),
+        agentsRes.json().catch(() => ({ agents: [] })),
+        logsRes.json().catch(() => ({ logs: [], count: 0 })),
+        healthRes.json().catch(() => null),
+      ])
+
       dispatch({
         type: 'FETCH_SUCCESS',
         payload: {
@@ -70,13 +86,23 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const refresh = useCallback(() => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current)
+    }
     fetchData()
+    intervalRef.current = window.setInterval(fetchData, REFRESH_INTERVAL)
   }, [fetchData])
+
+  refreshRef.current = refresh
 
   useEffect(() => {
     fetchData()
-    const interval = setInterval(fetchData, 30000)
-    return () => clearInterval(interval)
+    intervalRef.current = window.setInterval(fetchData, REFRESH_INTERVAL)
+    return () => {
+      if (intervalRef.current !== null) {
+        clearInterval(intervalRef.current)
+      }
+    }
   }, [fetchData])
 
   return (
