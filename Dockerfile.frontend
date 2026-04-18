@@ -1,21 +1,6 @@
-# Standalone frontend build container
-# Use this to build the frontend without running it
-# Outputs build artifacts to /app/frontend/dist
-FROM node:20-alpine AS builder
-
+FROM node:20-alpine
 WORKDIR /app/frontend
-
-# Copy package files
-COPY frontend/package.json frontend/package-lock.json* ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy frontend source
+COPY frontend/package*.json ./
+RUN npm install
 COPY frontend/ ./
-
-# Build the frontend
 RUN npm run build
-
-# This image is build-only. To extract artifacts:
-# docker run --rm -v $(pwd)/dist:/output frontend-builder sh -c "cp -r /app/frontend/dist/* /output"
