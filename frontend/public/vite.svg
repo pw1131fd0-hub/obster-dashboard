@@ -1,4 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="28" fill="#1E293B"/>
-  <text x="50%" y="55%" text-anchor="middle" dy=".35em" font-size="32" fill="#3B82F6">🦞</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect x="4" y="8" width="56" height="48" rx="4" stroke="#3B82F6" stroke-width="3"/>
+  <rect x="10" y="14" width="20" height="12" rx="2" fill="#3B82F6" opacity="0.5"/>
+  <rect x="34" y="14" width="20" height="12" rx="2" fill="#3B82F6" opacity="0.5"/>
+  <rect x="10" y="30" width="20" height="12" rx="2" fill="#22C55E" opacity="0.5"/>
+  <rect x="34" y="30" width="20" height="12" rx="2" fill="#F59E0B" opacity="0.5"/>
+  <circle cx="32" cy="6" r="3" fill="#EF4444"/>
 </svg>

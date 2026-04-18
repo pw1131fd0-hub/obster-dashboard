@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -13,13 +12,4 @@
 ::-webkit-scrollbar-thumb {
   background: #475569;
   border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #64748B;
-}
-
-/* Focus styles */
-*:focus-visible {
-  outline: 2px solid #3B82F6;
-  outline-offset: 2px;
 }

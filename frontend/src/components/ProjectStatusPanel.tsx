@@ -12,11 +12,9 @@ function ProjectStatusPanel() {
 
   return (
     <section className="bg-secondary rounded-xl p-6">
-      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-        📋 開發任務狀態
-      </h2>
+      <h2 className="text-lg font-semibold mb-4">Project Status</h2>
       {state.projects.length === 0 ? (
-        <p className="text-text-muted">暫無專案資料</p>
+        <p className="text-text-muted">No projects available</p>
       ) : (
         <div className="space-y-4">
           {state.projects.map((project) => (
@@ -29,7 +27,7 @@ function ProjectStatusPanel() {
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-text-muted">迭代: </span>
+                  <span className="text-text-muted">Iteration: </span>
                   <span>#{project.iteration}</span>
                 </div>
                 <div>

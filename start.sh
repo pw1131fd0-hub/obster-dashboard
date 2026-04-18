@@ -1,22 +1,22 @@
 #!/bin/bash
 set -e
 
-echo "Starting Obster Dashboard..."
+echo "Starting Obster Dashboard in development mode..."
 
-# Build and start containers
-docker-compose build
-docker-compose up -d
+# Start backend
+cd "$(dirname "$0")/backend"
+pip install -r requirements.txt
+uvicorn main:app --host 0.0.0.0 --port 8000 &
+BACKEND_PID=$!
 
-echo "Waiting for services to be ready..."
-sleep 3
+# Start frontend
+cd "$(dirname "$0")/frontend"
+npm install
+npm run dev &
+FRONTEND_PID=$!
 
-# Health check
-echo "Checking API health..."
-if curl -sf http://localhost/api/health > /dev/null 2>&1; then
-    echo "Dashboard is running at http://localhost"
-    echo "API available at http://localhost/api"
-else
-    echo "Warning: Health check failed. Services may still be starting."
-    echo "Check status with: docker-compose ps"
-    echo "View logs with: docker-compose logs -f"
-fi
+echo "Backend running on http://localhost:8000"
+echo "Frontend running on http://localhost:5173"
+
+trap "kill $BACKEND_PID $FRONTEND_PID" EXIT
+wait

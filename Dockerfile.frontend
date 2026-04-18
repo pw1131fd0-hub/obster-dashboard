@@ -1,30 +1,7 @@
-# Frontend-only build stage
-# Usage: docker build -f Dockerfile.frontend -t obster-frontend-build .
-# This produces a dist/ directory with the built frontend assets
-
-FROM node:20-alpine AS frontend-builder
-
-WORKDIR /app/frontend
-
-# Copy package files
-COPY frontend/package.json frontend/vite.config.ts frontend/tsconfig.json frontend/tsconfig.node.json ./
-COPY frontend/postcss.config.js frontend/tailwind.config.js ./
-
-# Install dependencies
+FROM node:20-alpine
+WORKDIR /app
+COPY frontend/package*.json ./
 RUN npm install
-
-# Copy source files
-COPY frontend/src ./src
-COPY frontend/public ./public
-
-# Build the frontend
-RUN npm run build
-
-# Output stage - copy built files
-FROM alpine:latest AS build-output
-WORKDIR /dist
-COPY --from=frontend-builder /app/frontend/dist .
-
-# Final stage - just verify the output exists
-FROM scratch
-COPY --from=build-output /dist/ .
+COPY frontend/ ./
+EXPOSE 5173
+CMD ["npm", "run", "dev"]

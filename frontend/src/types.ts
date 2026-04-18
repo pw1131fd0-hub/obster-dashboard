@@ -10,7 +10,7 @@ export interface Project {
 
 export interface CronJob {
   name: string;
-  status: 'active' | 'inactive' | 'failed' | 'error';
+  status: 'active' | 'inactive' | 'failed' | 'error' | 'timeout';
   last_run: string | null;
   exit_code: number | null;
   recent_logs: string[];
@@ -27,34 +27,15 @@ export interface LogEntry {
   filename: string;
   path: string;
   timestamp: string;
-  content: Record<string, unknown>;
+  content: object;
 }
 
-export interface HealthResponse {
-  status: string;
-  uptime_seconds: number;
-  version: string;
-}
-
-export interface ProjectResponse {
+export interface DashboardState {
   projects: Project[];
-  timestamp: string;
-}
-
-export interface CronJobResponse {
   cronjobs: CronJob[];
-  timestamp: string;
-}
-
-export interface AgentResponse {
   agents: Agent[];
-  timestamp: string;
-}
-
-export interface LogResponse {
   logs: LogEntry[];
-  count: number;
-  timestamp: string;
+  loading: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
 }
-
-export type RefreshInterval = 30000; // 30 seconds
