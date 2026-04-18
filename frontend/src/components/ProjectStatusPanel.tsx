@@ -12,7 +12,7 @@ export function ProjectStatusPanel() {
 
   return (
     <section className="bg-secondary rounded-lg p-4 h-full shadow-lg">
-      <h2 className="text-lg font-semibold mb-4 text-text">Project Status</h2>
+      <h2 className="text-lg font-semibold mb-4 text-text">📋 開發任務狀態</h2>
       {loading && projects.length === 0 ? (
         <div className="flex items-center justify-center h-32">
           <div className="animate-pulse text-text-muted">Loading...</div>

@@ -1,625 +1,483 @@
 """
-FastAPI backend for Obster Dashboard system.
-Provides endpoints for monitoring projects, cronjobs, agents, and execution logs.
+Obster Dashboard - Backend API
+FastAPI application for system monitoring
 """
-import json
-import logging
+
 import os
-import subprocess
+import sys
 import time
-from datetime import datetime, timezone
+import logging
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional, Dict, Any
+from functools import lru_cache
 
 import requests
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# =============================================================================
-# Environment Variables
-# =============================================================================
-PROJECTS_PATH: str = os.environ.get("PROJECTS_PATH", "/home/crawd_user/project")
-LOGS_PATH: str = os.environ.get("LOGS_PATH", "/home/crawd_user/.openclaw/workspace/logs/executions")
-TELEGRAM_BOT_TOKEN: str = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-TIMEOUT_MINUTES: int = int(os.environ.get("TIMEOUT_MINUTES", "30"))
-REFRESH_INTERVAL: int = int(os.environ.get("REFRESH_INTERVAL", "30000"))
+# Application metadata
+APP_START_TIME = time.time()
+VERSION = "1.0.0"
 
-# Agent list
-AGENTS: List[str] = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
+# Environment variables with defaults
+PROJECTS_PATH = os.getenv("PROJECTS_PATH", "/home/crawd_user/project")
+LOGS_PATH = os.getenv("LOGS_PATH", "/home/crawd_user/.openclaw/workspace/logs/executions")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TIMEOUT_MINUTES = int(os.getenv("TIMEOUT_MINUTES", "30"))
+
+# Default agents list
+DEFAULT_AGENTS = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
 
 # Systemd services to monitor
-SYSTEMD_SERVICES: List[str] = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
+SYSTEMD_SERVICES = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
 
-# Track startup time for uptime calculation
-STARTUP_TIME: float = time.time()
+# ============= Pydantic Models =============
 
-# Version
-VERSION: str = "1.0.0"
-
-# =============================================================================
-# FastAPI Application
-# =============================================================================
-app = FastAPI(
-    title="Obster Dashboard API",
-    description="Backend API for monitoring OpenClaw distributed system",
-    version=VERSION,
-)
-
-# =============================================================================
-# Pydantic Models
-# =============================================================================
-
-
-class HealthResponse(BaseModel):
-    """Response model for /api/health"""
-    status: str = "healthy"
-    uptime_seconds: float
-    version: str
-
-
-class ProjectStatus(BaseModel):
-    """Project status model from .dev_status.json"""
+class Project(BaseModel):
+    """Individual project data"""
     name: str
     path: str
-    stage: str = "unknown"
-    iteration: int = 0
-    quality_score: float = 0.0
-    blocking_errors: List[str] = Field(default_factory=list)
-    updated_at: Optional[str] = None
-
+    stage: str
+    iteration: int
+    quality_score: float
+    blocking_errors: List[str] = []
+    updated_at: str
 
 class ProjectResponse(BaseModel):
     """Response model for /api/projects"""
-    projects: List[ProjectStatus]
+    projects: List[Project] = []
     timestamp: str
 
-
-class CronJobStatus(BaseModel):
-    """CronJob status model from systemd"""
+class CronJob(BaseModel):
+    """Individual cron job data"""
     name: str
-    status: str = "unknown"
+    status: str  # active | inactive | failed | error | timeout | unknown
     last_run: Optional[str] = None
     exit_code: Optional[int] = None
-    recent_logs: List[str] = Field(default_factory=list)
-
+    recent_logs: List[str] = []
 
 class CronJobResponse(BaseModel):
     """Response model for /api/cronjobs"""
-    cronjobs: List[CronJobStatus]
+    cronjobs: List[CronJob] = []
     timestamp: str
 
-
-class AgentInfo(BaseModel):
-    """Agent health status model"""
+class Agent(BaseModel):
+    """Individual agent data"""
     name: str
-    status: str = "unknown"
+    status: str  # healthy | unhealthy | unknown | error
     last_response: Optional[str] = None
     minutes_ago: Optional[float] = None
 
-
 class AgentResponse(BaseModel):
     """Response model for /api/agents"""
-    agents: List[AgentInfo]
+    agents: List[Agent] = []
     timestamp: str
 
-
-class ExecutionLog(BaseModel):
-    """Execution log entry model"""
+class LogEntry(BaseModel):
+    """Individual log entry data"""
     filename: str
     path: str
-    timestamp: Optional[str] = None
-    content: Optional[Dict[str, Any]] = None
-
+    timestamp: str
+    content: Any
 
 class LogResponse(BaseModel):
     """Response model for /api/logs"""
-    logs: List[ExecutionLog]
-    count: int
+    logs: List[LogEntry] = []
+    count: int = 0
     timestamp: str
-
 
 class ConfigResponse(BaseModel):
     """Response model for /api/config"""
-    PROJECTS_PATH: str
-    LOGS_PATH: str
-    TELEGRAM_BOT_TOKEN: str
-    TIMEOUT_MINUTES: int
-    AGENTS: List[str]
-    REFRESH_INTERVAL: int
+    projects_path: str
+    logs_path: str
+    timeout_minutes: int
+    agents: List[str]
+    timestamp: str
 
+class HealthResponse(BaseModel):
+    """Response model for /api/health"""
+    status: str
+    uptime_seconds: float
+    version: str
 
-# =============================================================================
-# Helper Functions
-# =============================================================================
+class ErrorResponse(BaseModel):
+    """Standard error response"""
+    detail: str
+    code: str
 
+# ============= FastAPI Application =============
+
+app = FastAPI(
+    title="Obster Dashboard API",
+    description="Backend API for OpenClaw system monitoring dashboard",
+    version=VERSION
+)
+
+# Add CORS middleware for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ============= Helper Functions =============
 
 def get_timestamp() -> str:
-    """Get current UTC timestamp in ISO8601 format"""
-    return datetime.now(timezone.utc).isoformat()
+    """Get current ISO8601 timestamp"""
+    return datetime.utcnow().isoformat() + "Z"
 
+def parse_systemd_show(output: str) -> Dict[str, str]:
+    """Parse systemctl show output into key-value pairs"""
+    result = {}
+    for line in output.strip().split('\n'):
+        if '=' in line:
+            key, value = line.split('=', 1)
+            result[key] = value
+    return result
 
-def get_uptime_seconds() -> float:
-    """Calculate uptime in seconds"""
-    return round(time.time() - STARTUP_TIME, 2)
-
-
-# =============================================================================
-# Project Scanner Subsystem
-# =============================================================================
-
-
-def scan_projects() -> List[ProjectStatus]:
-    """
-    Scan {PROJECTS_PATH}/*/docs/.dev_status.json for project status.
-    Returns list of ProjectStatus objects.
-    """
-    projects: List[ProjectStatus] = []
-    projects_path = Path(PROJECTS_PATH)
-
-    if not projects_path.exists():
-        logger.warning(f"Projects path does not exist: {PROJECTS_PATH}")
-        return projects
-
-    try:
-        for subdir in projects_path.iterdir():
-            if not subdir.is_dir():
-                continue
-
-            dev_status_file = subdir / "docs" / ".dev_status.json"
-            if not dev_status_file.exists():
-                continue
-
-            try:
-                with open(dev_status_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-
-                project = ProjectStatus(
-                    name=subdir.name,
-                    path=str(subdir),
-                    stage=data.get("stage", "unknown"),
-                    iteration=data.get("iteration", 0),
-                    quality_score=data.get("quality_score", 0.0),
-                    blocking_errors=data.get("blocking_errors", []),
-                    updated_at=data.get("updated_at"),
-                )
-                projects.append(project)
-                logger.info(f"Scanned project: {project.name}")
-
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse {dev_status_file}: {e}")
-            except Exception as e:
-                logger.error(f"Failed to read {dev_status_file}: {e}")
-
-    except PermissionError as e:
-        logger.error(f"Permission denied accessing {projects_path}: {e}")
-    except Exception as e:
-        logger.error(f"Error scanning projects: {e}")
-
-    return projects
-
-
-# =============================================================================
-# Systemd Reader Subsystem
-# =============================================================================
-
-
-def get_systemctl_show(service_name: str) -> Dict[str, str]:
-    """
-    Run systemctl show for a service and parse key=value pairs.
-    Returns dict with ActiveState, ExecMainStatus, etc.
-    """
+def call_systemctl_show(service_name: str, timeout: int = 5) -> Optional[Dict[str, str]]:
+    """Call systemctl show for a service"""
+    import subprocess
     try:
         result = subprocess.run(
             ["systemctl", "show", service_name],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=timeout
         )
-
-        data: Dict[str, str] = {}
-        for line in result.stdout.splitlines():
-            if "=" in line:
-                key, value = line.split("=", 1)
-                data[key] = value
-
-        return data
+        return parse_systemd_show(result.stdout)
     except subprocess.TimeoutExpired:
-        logger.error(f"systemctl show timed out for {service_name}")
-        raise
-    except FileNotFoundError:
-        logger.error("systemctl not found - not running on systemd?")
-        raise
+        logger.warning(f"systemctl show timed out for {service_name}")
+        return None
     except Exception as e:
-        logger.error(f"Error running systemctl show for {service_name}: {e}")
-        raise
+        logger.error(f"Error calling systemctl show for {service_name}: {e}")
+        return None
 
-
-def get_journalctl_logs(service_name: str, limit: int = 5) -> List[str]:
-    """
-    Run journalctl to get recent logs for a service.
-    Returns list of log lines.
-    """
+def call_journalctl(service_name: str, limit: int = 10, timeout: int = 5) -> List[str]:
+    """Get recent logs from journalctl"""
+    import subprocess
     try:
         result = subprocess.run(
             ["journalctl", "--since", "1 hour ago", "-u", service_name, "--no-pager", "-n", str(limit)],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=timeout
         )
-        return result.stdout.splitlines() if result.stdout else []
+        lines = result.stdout.strip().split('\n') if result.stdout.strip() else []
+        return lines[-limit:] if len(lines) > limit else lines
     except subprocess.TimeoutExpired:
-        logger.error(f"journalctl timed out for {service_name}")
-        return []
-    except FileNotFoundError:
-        logger.error("journalctl not found")
+        logger.warning(f"journalctl timed out for {service_name}")
         return []
     except Exception as e:
-        logger.error(f"Error running journalctl for {service_name}: {e}")
+        logger.error(f"Error calling journalctl for {service_name}: {e}")
         return []
 
-
-def get_cronjob_status(service_name: str) -> CronJobStatus:
-    """
-    Get status for a single systemd service.
-    """
+def get_telegram_updates(token: str, limit: int = 100) -> Optional[Dict]:
+    """Fetch updates from Telegram Bot API"""
+    if not token:
+        return None
     try:
-        data = get_systemctl_show(service_name)
-        active_state = data.get("ActiveState", "unknown")
-        exec_main_status = data.get("ExecMainStatus", "")
-
-        # Parse last state change
-        inactive_exit_time = data.get("InactiveExitTimestamp", "")
-        if not inactive_exit_time:
-            inactive_exit_time = data.get("InactiveExitTimestampMonotonic", "")
-
-        exit_code = int(exec_main_status) if exec_main_status.isdigit() else None
-
-        # Map ActiveState to our status
-        status_map = {
-            "active": "active",
-            "inactive": "inactive",
-            "failed": "failed",
-            "activating": "active",
-            "deactivating": "inactive",
-        }
-        status = status_map.get(active_state.lower(), "unknown")
-
-        recent_logs = get_journalctl_logs(service_name, limit=5)
-
-        return CronJobStatus(
-            name=service_name,
-            status=status,
-            last_run=inactive_exit_time if inactive_exit_time else None,
-            exit_code=exit_code,
-            recent_logs=recent_logs,
-        )
-
-    except subprocess.TimeoutExpired:
-        return CronJobStatus(
-            name=service_name,
-            status="timeout",
-            last_run=None,
-            exit_code=None,
-            recent_logs=[f"Timeout expired while querying {service_name}"],
-        )
-    except FileNotFoundError:
-        return CronJobStatus(
-            name=service_name,
-            status="error",
-            last_run=None,
-            exit_code=None,
-            recent_logs=["systemctl/journalctl not available"],
-        )
+        url = f"https://api.telegram.org/bot{token}/getUpdates"
+        response = requests.get(url, params={"limit": limit}, timeout=10)
+        if response.status_code == 200:
+            return response.json()
+        return None
     except Exception as e:
-        return CronJobStatus(
-            name=service_name,
-            status="error",
-            last_run=None,
-            exit_code=None,
-            recent_logs=[str(e)],
-        )
+        logger.error(f"Error fetching Telegram updates: {e}")
+        return None
 
-
-def scan_cronjobs() -> List[CronJobStatus]:
-    """
-    Scan all configured systemd services for status.
-    """
-    cronjobs: List[CronJobStatus] = []
-    for service in SYSTEMD_SERVICES:
-        cronjob = get_cronjob_status(service)
-        cronjobs.append(cronjob)
-    return cronjobs
-
-
-# =============================================================================
-# Telegram Agent Tracker Subsystem
-# =============================================================================
-
-
-def poll_telegram_updates() -> Dict[str, Any]:
-    """
-    Fetch updates from Telegram Bot API.
-    Returns parsed JSON response.
-    """
-    if not TELEGRAM_BOT_TOKEN:
-        raise ValueError("Telegram bot token not configured")
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
-    params = {"limit": 100, "timeout": 1}
-
-    response = requests.get(url, params=params, timeout=10)
-    response.raise_for_status()
-
-    return response.json()
-
-
-def get_agent_status(agent_name: str, updates: List[Dict[str, Any]]) -> AgentInfo:
-    """
-    Get status for a single agent based on Telegram updates.
-    """
-    now = datetime.now(timezone.utc)
-
-    for update in updates:
-        try:
-            message = update.get("message", {})
-            chat = message.get("chat", {})
-            username = chat.get("username", "")
-
-            if username == agent_name:
-                date_str = message.get("date")
-                if date_str:
+def scan_projects() -> List[Project]:
+    """Scan PROJECTS_PATH for projects with .dev_status.json"""
+    projects = []
+    projects_path = Path(PROJECTS_PATH)
+    
+    if not projects_path.exists():
+        logger.warning(f"Projects path does not exist: {PROJECTS_PATH}")
+        return projects
+    
+    try:
+        for entry in projects_path.iterdir():
+            if entry.is_dir():
+                dev_status_path = entry / "docs" / ".dev_status.json"
+                if dev_status_path.exists():
                     try:
-                        last_response = datetime.fromtimestamp(date_str, tz=timezone.utc)
-                        minutes_ago = (now - last_response).total_seconds() / 60.0
-
-                        if minutes_ago >= TIMEOUT_MINUTES:
-                            agent_status = "unhealthy"
-                        else:
-                            agent_status = "healthy"
-
-                        return AgentInfo(
-                            name=agent_name,
-                            status=agent_status,
-                            last_response=last_response.isoformat(),
-                            minutes_ago=round(minutes_ago, 1),
+                        import json
+                        with open(dev_status_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        
+                        project = Project(
+                            name=entry.name,
+                            path=str(entry),
+                            stage=data.get("stage", "unknown"),
+                            iteration=data.get("iteration", 0),
+                            quality_score=data.get("quality_score", 0.0),
+                            blocking_errors=data.get("blocking_errors", []),
+                            updated_at=data.get("updated_at", "")
                         )
-                    except (ValueError, OSError) as e:
-                        logger.error(f"Error parsing date for agent {agent_name}: {e}")
-        except Exception as e:
-            logger.error(f"Error processing update for agent {agent_name}: {e}")
-            continue
-
-    return AgentInfo(
-        name=agent_name,
-        status="unknown",
-        last_response=None,
-        minutes_ago=None,
-    )
-
-
-def track_agents() -> List[AgentInfo]:
-    """
-    Track agent health via Telegram Bot API getUpdates.
-    Returns list of AgentInfo objects with health status.
-    """
-    agents: List[AgentInfo] = []
-
-    if not TELEGRAM_BOT_TOKEN:
-        # Return all agents as unknown if no token configured
-        logger.warning("TELEGRAM_BOT_TOKEN not set, returning unknown for all agents")
-        for name in AGENTS:
-            agents.append(AgentInfo(
-                name=name,
-                status="unknown",
-                last_response=None,
-                minutes_ago=None,
-            ))
-        return agents
-
-    try:
-        data = poll_telegram_updates()
-        updates = data.get("result", [])
-
-        for agent_name in AGENTS:
-            agent = get_agent_status(agent_name, updates)
-            agents.append(agent)
-
-    except requests.RequestException as e:
-        logger.error(f"Telegram API request failed: {e}")
-        for name in AGENTS:
-            agents.append(AgentInfo(
-                name=name,
-                status="error",
-                last_response=None,
-                minutes_ago=None,
-            ))
+                        projects.append(project)
+                    except Exception as e:
+                        logger.error(f"Error reading {dev_status_path}: {e}")
+                        continue
     except Exception as e:
-        logger.error(f"Error tracking agents: {e}")
-        for name in AGENTS:
-            agents.append(AgentInfo(
-                name=name,
-                status="error",
-                last_response=None,
-                minutes_ago=None,
-            ))
+        logger.error(f"Error scanning projects directory: {e}")
+    
+    return projects
 
-    return agents
-
-
-# =============================================================================
-# Execution Log Collector Subsystem
-# =============================================================================
-
-
-def scan_logs(limit: int = 20) -> List[ExecutionLog]:
-    """
-    Read JSON files from {LOGS_PATH}, sort by mtime, return latest 'limit' entries.
-    """
-    logs: List[ExecutionLog] = []
+def scan_logs(limit: int = 20) -> List[LogEntry]:
+    """Scan LOGS_PATH for JSON log files"""
+    logs = []
     logs_path = Path(LOGS_PATH)
-
+    
     if not logs_path.exists():
         logger.warning(f"Logs path does not exist: {LOGS_PATH}")
         return logs
-
+    
     try:
         json_files = list(logs_path.glob("*.json"))
-
-        # Sort by modification time (newest first)
-        json_files.sort(key=lambda f: f.stat().st_mtime, reverse=True)
-
-        # Take the latest 'limit' files
+        # Sort by modification time descending
+        json_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        
         for file_path in json_files[:limit]:
             try:
-                with open(file_path, "r", encoding="utf-8") as f:
+                import json
+                with open(file_path, 'r', encoding='utf-8') as f:
                     content = json.load(f)
-
-                # Get modification time
+                
+                # Get modification time as timestamp
                 mtime = file_path.stat().st_mtime
-                timestamp = datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
-
-                logs.append(ExecutionLog(
+                timestamp = datetime.fromtimestamp(mtime).isoformat() + "Z"
+                
+                log_entry = LogEntry(
                     filename=file_path.name,
                     path=str(file_path),
                     timestamp=timestamp,
-                    content=content,
-                ))
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse log file {file_path}: {e}")
+                    content=content
+                )
+                logs.append(log_entry)
             except Exception as e:
-                logger.error(f"Failed to read log file {file_path}: {e}")
-
-    except PermissionError as e:
-        logger.error(f"Permission denied accessing {logs_path}: {e}")
+                logger.error(f"Error reading log file {file_path}: {e}")
+                continue
     except Exception as e:
-        logger.error(f"Error collecting execution logs: {e}")
-
+        logger.error(f"Error scanning logs directory: {e}")
+    
     return logs
 
+def get_agents_health() -> List[Agent]:
+    """Get agent health status from Telegram bot updates"""
+    agents_info = []
+    
+    if not TELEGRAM_BOT_TOKEN:
+        # Return all agents as unknown if no token
+        for agent_name in DEFAULT_AGENTS:
+            agents_info.append(Agent(
+                name=agent_name,
+                status="unknown",
+                last_response=None,
+                minutes_ago=None
+            ))
+        return agents_info
+    
+    updates = get_telegram_updates(TELEGRAM_BOT_TOKEN)
+    if not updates or updates.get("ok") != True:
+        for agent_name in DEFAULT_AGENTS:
+            agents_info.append(Agent(
+                name=agent_name,
+                status="error",
+                last_response=None,
+                minutes_ago=None
+            ))
+        return agents_info
+    
+    # Parse updates to find agent responses
+    updates_data = updates.get("result", [])
+    agent_last_times: Dict[str, datetime] = {name: datetime.min for name in DEFAULT_AGENTS}
+    
+    for update in updates_data:
+        message = update.get("message", {})
+        text = message.get("text", "")
+        date_str = message.get("date")
+        
+        if not date_str or not text:
+            continue
+        
+        # Check if any agent name is in the message
+        for agent_name in DEFAULT_AGENTS:
+            if agent_name.lower() in text.lower():
+                try:
+                    msg_time = datetime.fromtimestamp(date_str)
+                    if msg_time > agent_last_times[agent_name]:
+                        agent_last_times[agent_name] = msg_time
+                except (ValueError, TypeError):
+                    continue
+    
+    # Calculate status for each agent
+    now = datetime.utcnow()
+    for agent_name in DEFAULT_AGENTS:
+        last_time = agent_last_times[agent_name]
+        
+        if last_time == datetime.min:
+            status = "unknown"
+            minutes_ago = None
+            last_response = None
+        else:
+            delta = now - last_time
+            minutes_ago = delta.total_seconds() / 60.0
+            last_response = last_time.isoformat() + "Z"
+            
+            if minutes_ago >= TIMEOUT_MINUTES:
+                status = "unhealthy"
+            else:
+                status = "healthy"
+        
+        agents_info.append(Agent(
+            name=agent_name,
+            status=status,
+            last_response=last_response,
+            minutes_ago=minutes_ago
+        ))
+    
+    return agents_info
 
-# =============================================================================
-# API Endpoints
-# =============================================================================
+# ============= API Endpoints =============
 
-
-@app.get("/api/health", response_model=HealthResponse)
+@app.get("/api/health", response_model=HealthResponse, tags=["health"])
 def get_health():
-    """
-    Health check endpoint.
-    Returns status, uptime in seconds, and version.
-    """
+    """Health check endpoint"""
     return HealthResponse(
         status="healthy",
-        uptime_seconds=get_uptime_seconds(),
-        version=VERSION,
+        uptime_seconds=time.time() - APP_START_TIME,
+        version=VERSION
     )
 
-
-@app.get("/api/projects", response_model=ProjectResponse)
+@app.get("/api/projects", response_model=ProjectResponse, tags=["projects"])
 def get_projects():
-    """
-    Get all project statuses by scanning {PROJECTS_PATH}/*/docs/.dev_status.json.
-    """
-    projects = scan_projects()
-    return ProjectResponse(
-        projects=projects,
-        timestamp=get_timestamp(),
-    )
+    """Get all project statuses"""
+    try:
+        projects = scan_projects()
+        return ProjectResponse(
+            projects=projects,
+            timestamp=get_timestamp()
+        )
+    except Exception as e:
+        logger.error(f"Error in get_projects: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="PROJECTS_ERROR")
 
+@app.get("/api/cronjobs", response_model=CronJobResponse, tags=["cronjobs"])
+def get_cronjobs(limit: int = Query(default=10, ge=1, le=100)):
+    """Get Cron Job monitoring data"""
+    try:
+        cronjobs = []
+        
+        for service_name in SYSTEMD_SERVICES:
+            # Get systemctl show data
+            show_data = call_systemctl_show(service_name)
+            
+            if show_data is None:
+                cronjob = CronJob(
+                    name=service_name,
+                    status="timeout",
+                    last_run=None,
+                    exit_code=None,
+                    recent_logs=[]
+                )
+            else:
+                active_state = show_data.get("ActiveState", "unknown")
+                exec_main_status = show_data.get("ExecMainStatus", "")
+                
+                # Parse exit code
+                exit_code = int(exec_main_status) if exec_main_status else None
+                
+                # Determine status
+                if active_state == "active":
+                    status = "active"
+                elif active_state == "inactive":
+                    status = "inactive"
+                elif active_state == "failed":
+                    status = "failed"
+                else:
+                    status = "error"
+                
+                # Get last run time from LoadState or similar
+                last_run = show_data.get("ActiveEnterTimestamp", None)
+                
+                cronjob = CronJob(
+                    name=service_name,
+                    status=status,
+                    last_run=last_run,
+                    exit_code=exit_code,
+                    recent_logs=[]
+                )
+            
+            # Get recent logs
+            cronjob.recent_logs = call_journalctl(service_name, limit)
+            cronjobs.append(cronjob)
+        
+        return CronJobResponse(
+            cronjobs=cronjobs,
+            timestamp=get_timestamp()
+        )
+    except Exception as e:
+        logger.error(f"Error in get_cronjobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="CRONJOBS_ERROR")
 
-@app.get("/api/cronjobs", response_model=CronJobResponse)
-def get_cronjobs():
-    """
-    Get cronjob/systemd service status for configured services.
-    """
-    cronjobs = scan_cronjobs()
-    return CronJobResponse(
-        cronjobs=cronjobs,
-        timestamp=get_timestamp(),
-    )
-
-
-@app.get("/api/agents", response_model=AgentResponse)
+@app.get("/api/agents", response_model=AgentResponse, tags=["agents"])
 def get_agents():
-    """
-    Get agent health status by querying Telegram Bot API.
-    """
-    agents = track_agents()
-    return AgentResponse(
-        agents=agents,
-        timestamp=get_timestamp(),
-    )
+    """Get Agent health status"""
+    try:
+        agents = get_agents_health()
+        return AgentResponse(
+            agents=agents,
+            timestamp=get_timestamp()
+        )
+    except Exception as e:
+        logger.error(f"Error in get_agents: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="AGENTS_ERROR")
 
+@app.get("/api/logs", response_model=LogResponse, tags=["logs"])
+def get_logs(limit: int = Query(default=20, ge=1, le=100)):
+    """Get execution logs"""
+    try:
+        logs = scan_logs(limit)
+        return LogResponse(
+            logs=logs,
+            count=len(logs),
+            timestamp=get_timestamp()
+        )
+    except Exception as e:
+        logger.error(f"Error in get_logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e), code="LOGS_ERROR")
 
-@app.get("/api/logs", response_model=LogResponse)
-def get_logs(limit: int = 20):
-    """
-    Get execution logs from {LOGS_PATH}, sorted by modification time.
-    """
-    if limit < 1:
-        limit = 1
-    if limit > 100:
-        limit = 100
-
-    logs = scan_logs(limit=limit)
-    return LogResponse(
-        logs=logs,
-        count=len(logs),
-        timestamp=get_timestamp(),
-    )
-
-
-@app.get("/api/config", response_model=ConfigResponse)
+@app.get("/api/config", response_model=ConfigResponse, tags=["config"])
 def get_config():
-    """
-    Get system configuration (environment variables).
-    """
+    """Get system configuration"""
     return ConfigResponse(
-        PROJECTS_PATH=PROJECTS_PATH,
-        LOGS_PATH=LOGS_PATH,
-        TELEGRAM_BOT_TOKEN=TELEGRAM_BOT_TOKEN,
-        TIMEOUT_MINUTES=TIMEOUT_MINUTES,
-        AGENTS=AGENTS,
-        REFRESH_INTERVAL=REFRESH_INTERVAL,
+        projects_path=PROJECTS_PATH,
+        logs_path=LOGS_PATH,
+        timeout_minutes=TIMEOUT_MINUTES,
+        agents=DEFAULT_AGENTS,
+        timestamp=get_timestamp()
     )
 
-
-@app.get("/api/")
-def root():
-    """Root endpoint with API information."""
-    return {
-        "name": "Obster Dashboard API",
-        "version": VERSION,
-        "docs": "/docs",
-    }
-
-
-# =============================================================================
-# Error Handlers
-# =============================================================================
-
-
+# Error handlers
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc: HTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail, "code": f"HTTP_{exc.status_code}"},
-    )
-
+async def http_exception_handler(request, exc):
+    return {"detail": exc.detail, "code": exc.code}
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request, exc: Exception):
-    logger.error(f"Unhandled exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": str(exc), "code": "INTERNAL_ERROR"},
-    )
-
+async def general_exception_handler(request, exc):
+    logger.error(f"Unhandled exception: {exc}")
+    return {"detail": str(exc), "code": "INTERNAL_ERROR"}
 
 if __name__ == "__main__":
     import uvicorn

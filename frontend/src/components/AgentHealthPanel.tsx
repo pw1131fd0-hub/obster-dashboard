@@ -14,7 +14,7 @@ export function AgentHealthPanel() {
 
   return (
     <section className="bg-secondary rounded-lg p-4 h-full shadow-lg">
-      <h2 className="text-lg font-semibold mb-4 text-text">Agent Health</h2>
+      <h2 className="text-lg font-semibold mb-4 text-text">🤖 Agent 健康度</h2>
       {loading && agents.length === 0 ? (
         <div className="flex items-center justify-center h-32">
           <div className="animate-pulse text-text-muted">Loading...</div>

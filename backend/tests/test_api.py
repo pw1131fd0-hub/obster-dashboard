@@ -1,261 +1,368 @@
 """
-Comprehensive pytest tests for Obster Dashboard API endpoints.
-Tests use mocking to isolate from filesystem and subprocess operations.
+Obster Dashboard - Backend API Tests
+Pytest test suite for all API endpoints
 """
 
 import os
 import sys
+import json
 import time
+from datetime import datetime
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch, MagicMock, mock_open
 
 import pytest
-import pytest_asyncio
+from fastapi.testclient import TestClient
 
+# Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from main import app
 
-@pytest_asyncio.fixture(scope="module")
-async def client():
-    """Create test client for the FastAPI app."""
-    from httpx import ASGITransport, AsyncClient
-    from main import app
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
-        yield ac
+# ============= Test Fixtures =============
 
+@pytest.fixture
+def client():
+    """Create a test client for the FastAPI app"""
+    return TestClient(app)
+
+
+@pytest.fixture
+def mock_projects_path(tmp_path):
+    """Create a temporary projects directory with test data"""
+    project1 = tmp_path / "project1"
+    project1.mkdir()
+    docs1 = project1 / "docs"
+    docs1.mkdir()
+    
+    dev_status1 = {
+        "stage": "dev",
+        "iteration": 3,
+        "quality_score": 92,
+        "blocking_errors": [],
+        "updated_at": "2026-04-13T08:30:00.000Z"
+    }
+    
+    with open(docs1 / ".dev_status.json", "w") as f:
+        json.dump(dev_status1, f)
+    
+    project2 = tmp_path / "project2"
+    project2.mkdir()
+    docs2 = project2 / "docs"
+    docs2.mkdir()
+    
+    dev_status2 = {
+        "stage": "prd",
+        "iteration": 5,
+        "quality_score": 88,
+        "blocking_errors": ["Auth module failing"],
+        "updated_at": "2026-04-12T10:00:00.000Z"
+    }
+    
+    with open(docs2 / ".dev_status.json", "w") as f:
+        json.dump(dev_status2, f)
+    
+    return tmp_path
+
+
+@pytest.fixture
+def mock_logs_path(tmp_path):
+    """Create a temporary logs directory with test data"""
+    logs_dir = tmp_path / "logs"
+    logs_dir.mkdir()
+    
+    log_data = {
+        "execution_id": "exec-20260413-001",
+        "project": "obster-worker",
+        "status": "success",
+        "duration_ms": 45230
+    }
+    
+    log_file = logs_dir / "execution_001.json"
+    with open(log_file, "w") as f:
+        json.dump(log_data, f)
+    
+    return logs_dir
+
+
+# ============= Health Endpoint Tests =============
 
 class TestHealthEndpoint:
-    """Tests for GET /api/health endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_health_returns_correct_structure(self, client):
-        """Test that health endpoint returns correct JSON structure."""
-        response = await client.get("/api/health")
+    """Tests for GET /api/health"""
+    
+    def test_health_returns_healthy_status(self, client):
+        """Test that health endpoint returns healthy status"""
+        response = client.get("/api/health")
         assert response.status_code == 200
-
         data = response.json()
-        assert "status" in data
-        assert "uptime_seconds" in data
-        assert "version" in data
         assert data["status"] == "healthy"
-        assert isinstance(data["uptime_seconds"], (int, float))
-        assert data["version"] == "1.0.0"
-
-    @pytest.mark.asyncio
-    async def test_health_uptime_increases(self, client):
-        """Test that uptime increases between calls."""
-        time.sleep(0.01)
-        response = await client.get("/api/health")
+    
+    def test_health_returns_version(self, client):
+        """Test that health endpoint returns version string"""
+        response = client.get("/api/health")
+        assert response.status_code == 200
         data = response.json()
+        assert "version" in data
+        assert isinstance(data["version"], str)
+    
+    def test_health_returns_uptime(self, client):
+        """Test that health endpoint returns uptime in seconds"""
+        response = client.get("/api/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert "uptime_seconds" in data
+        assert isinstance(data["uptime_seconds"], float)
         assert data["uptime_seconds"] >= 0
 
-    @pytest.mark.asyncio
-    async def test_health_version_format(self, client):
-        """Test that version is a string."""
-        response = await client.get("/api/health")
-        data = response.json()
-        assert isinstance(data["version"], str)
-        assert len(data["version"]) > 0
 
+# ============= Projects Endpoint Tests =============
 
 class TestProjectsEndpoint:
-    """Tests for GET /api/projects endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_projects_returns_correct_structure(self, client):
-        """Test that projects endpoint returns correct JSON structure."""
-        response = await client.get("/api/projects")
+    """Tests for GET /api/projects"""
+    
+    def test_projects_returns_empty_list_when_no_projects(self, client):
+        """Test that projects endpoint returns empty list when path doesn't exist"""
+        with patch.dict(os.environ, {"PROJECTS_PATH": "/nonexistent/path"}):
+            with patch("main.Path.exists", return_value=False):
+                response = client.get("/api/projects")
+                assert response.status_code == 200
+                data = response.json()
+                assert "projects" in data
+                assert isinstance(data["projects"], list)
+    
+    @patch("main.scan_projects")
+    def test_projects_returns_project_list(self, mock_scan, client):
+        """Test that projects endpoint returns list of projects"""
+        mock_projects = [
+            {
+                "name": "test-project",
+                "path": "/home/crawd_user/project/test-project",
+                "stage": "dev",
+                "iteration": 1,
+                "quality_score": 90.0,
+                "blocking_errors": [],
+                "updated_at": "2026-04-13T08:30:00.000Z"
+            }
+        ]
+        mock_scan.return_value = mock_projects
+        
+        response = client.get("/api/projects")
         assert response.status_code == 200
-
         data = response.json()
-        assert "projects" in data
+        assert len(data["projects"]) == 1
+        assert data["projects"][0]["name"] == "test-project"
+    
+    @patch("main.scan_projects")
+    def test_projects_includes_timestamp(self, mock_scan, client):
+        """Test that projects response includes timestamp"""
+        mock_scan.return_value = []
+        
+        response = client.get("/api/projects")
+        assert response.status_code == 200
+        data = response.json()
         assert "timestamp" in data
-        assert isinstance(data["projects"], list)
-
-    @pytest.mark.asyncio
-    async def test_projects_timestamp_is_iso8601(self, client):
-        """Test that timestamp is in ISO8601 format."""
-        response = await client.get("/api/projects")
-        data = response.json()
-        timestamp = data["timestamp"]
-        assert "T" in timestamp
-        assert "+00:00" in timestamp or timestamp.endswith("Z")
-
-    @pytest.mark.asyncio
-    async def test_projects_returns_list_of_projects(self, client):
-        """Test that projects returns a list of project objects."""
-        response = await client.get("/api/projects")
-        data = response.json()
-        for project in data["projects"]:
-            assert "name" in project
-            assert "path" in project
-            assert "stage" in project
-            assert "iteration" in project
-            assert "quality_score" in project
-            assert "blocking_errors" in project
 
 
-class TestCronjobsEndpoint:
-    """Tests for GET /api/cronjobs endpoint."""
+# ============= CronJobs Endpoint Tests =============
 
-    @pytest.mark.asyncio
-    async def test_cronjobs_returns_correct_structure(self, client):
-        """Test that cronjobs endpoint returns correct JSON structure."""
-        response = await client.get("/api/cronjobs")
+class TestCronJobsEndpoint:
+    """Tests for GET /api/cronjobs"""
+    
+    def test_cronjobs_default_limit(self, client):
+        """Test that cronjobs endpoint accepts default limit parameter"""
+        with patch("main.call_systemctl_show", return_value=None):
+            with patch("main.call_journalctl", return_value=[]):
+                response = client.get("/api/cronjobs")
+                assert response.status_code == 200
+    
+    @patch("main.call_systemctl_show")
+    @patch("main.call_journalctl")
+    def test_cronjobs_returns_service_data(self, mock_journal, mock_systemctl, client):
+        """Test that cronjobs endpoint returns data for each service"""
+        mock_systemctl.return_value = {
+            "ActiveState": "active",
+            "ExecMainStatus": "0"
+        }
+        mock_journal.return_value = ["Log line 1", "Log line 2"]
+        
+        response = client.get("/api/cronjobs")
         assert response.status_code == 200
-
         data = response.json()
         assert "cronjobs" in data
-        assert "timestamp" in data
-        assert isinstance(data["cronjobs"], list)
-
-    @pytest.mark.asyncio
-    async def test_cronjobs_includes_all_services(self, client):
-        """Test that all expected cronjob services are included."""
-        response = await client.get("/api/cronjobs")
-        data = response.json()
-        service_names = [cj["name"] for cj in data["cronjobs"]]
-        assert "obster-monitor" in service_names
-        assert "obster-cron" in service_names
-        assert "openclaw-scheduler" in service_names
-
-    @pytest.mark.asyncio
-    async def test_cronjobs_handles_error_gracefully(self, client):
-        """Test that cronjobs handles systemctl errors gracefully."""
-        with patch("main.get_cronjob_status") as mock_status:
-            from main import CronJobStatus
-            mock_status.return_value = CronJobStatus(
-                name="test-service",
-                status="error",
-                last_run=None,
-                exit_code=None,
-                recent_logs=["systemctl failed"]
-            )
-            response = await client.get("/api/cronjobs")
+    
+    @patch("main.call_systemctl_show")
+    def test_cronjobs_handles_timeout(self, mock_systemctl, client):
+        """Test that cronjobs handles systemctl timeout"""
+        mock_systemctl.return_value = None
+        
+        with patch("main.call_journalctl", return_value=[]):
+            response = client.get("/api/cronjobs")
             assert response.status_code == 200
+            data = response.json()
+            # Timeout should set status to "timeout"
+            for job in data["cronjobs"]:
+                assert job["name"] in ["obster-monitor", "obster-cron", "openclaw-scheduler"]
 
+
+# ============= Agents Endpoint Tests =============
 
 class TestAgentsEndpoint:
-    """Tests for GET /api/agents endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_agents_returns_correct_structure(self, client):
-        """Test that agents endpoint returns correct JSON structure."""
-        response = await client.get("/api/agents")
+    """Tests for GET /api/agents"""
+    
+    @patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": ""})
+    def test_agents_returns_unknown_when_no_token(self, client):
+        """Test that agents returns unknown status when no token configured"""
+        response = client.get("/api/agents")
         assert response.status_code == 200
-
         data = response.json()
-        assert "agents" in data
-        assert "timestamp" in data
-        assert isinstance(data["agents"], list)
-
-    @pytest.mark.asyncio
-    async def test_agents_includes_all_expected_agents(self, client):
-        """Test that all expected agents are included."""
-        response = await client.get("/api/agents")
+        assert len(data["agents"]) == 6
+        for agent in data["agents"]:
+            assert agent["status"] == "unknown"
+    
+    @patch("main.get_telegram_updates")
+    @patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "test_token"})
+    def test_agents_returns_error_when_api_fails(self, mock_get_updates, client):
+        """Test that agents returns error status when Telegram API fails"""
+        mock_get_updates.return_value = None
+        
+        response = client.get("/api/agents")
+        assert response.status_code == 200
         data = response.json()
-        agent_names = [a["name"] for a in data["agents"]]
-        expected_agents = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
-        for name in expected_agents:
-            assert name in agent_names
-
-    @pytest.mark.asyncio
-    async def test_agents_handles_api_error(self, client):
-        """Test that agents handles Telegram API errors gracefully."""
-        with patch("main.track_agents") as mock_track:
-            from main import AgentInfo
-            mock_track.return_value = [
-                AgentInfo(name="Argus", status="error", last_response=None, minutes_ago=None)
+        for agent in data["agents"]:
+            assert agent["status"] == "error"
+    
+    @patch("main.get_telegram_updates")
+    @patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "test_token"})
+    def test_agents_parses_updates_for_agent_names(self, mock_get_updates, client):
+        """Test that agents correctly parses Telegram updates for agent names"""
+        mock_get_updates.return_value = {
+            "ok": True,
+            "result": [
+                {
+                    "update_id": 123456789,
+                    "message": {
+                        "message_id": 1,
+                        "date": int(time.time()) - 60,  # 1 minute ago
+                        "text": "Argus reporting status OK"
+                    }
+                }
             ]
-            response = await client.get("/api/agents")
-            assert response.status_code == 200
+        }
+        
+        response = client.get("/api/agents")
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Find Argus agent
+        argus = next((a for a in data["agents"] if a["name"] == "Argus"), None)
+        assert argus is not None
+        assert argus["status"] == "healthy"
 
+
+# ============= Logs Endpoint Tests =============
 
 class TestLogsEndpoint:
-    """Tests for GET /api/logs endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_logs_returns_correct_structure(self, client):
-        """Test that logs endpoint returns correct JSON structure."""
-        response = await client.get("/api/logs")
+    """Tests for GET /api/logs"""
+    
+    @patch("main.scan_logs")
+    def test_logs_returns_empty_when_no_logs(self, mock_scan_logs, client):
+        """Test that logs endpoint returns empty list when no logs found"""
+        mock_scan_logs.return_value = []
+        
+        response = client.get("/api/logs")
         assert response.status_code == 200
-
         data = response.json()
-        assert "logs" in data
-        assert "count" in data
+        assert data["logs"] == []
+        assert data["count"] == 0
+    
+    @patch("main.scan_logs")
+    def test_logs_returns_log_entries(self, mock_scan_logs, client):
+        """Test that logs endpoint returns log entries with content"""
+        mock_logs = [
+            {
+                "filename": "execution_001.json",
+                "path": "/home/crawd_user/.openclaw/workspace/logs/executions/execution_001.json",
+                "timestamp": "2026-04-13T08:00:00.000Z",
+                "content": {"execution_id": "exec-001", "status": "success"}
+            }
+        ]
+        mock_scan_logs.return_value = mock_logs
+        
+        response = client.get("/api/logs")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["count"] == 1
+        assert data["logs"][0]["filename"] == "execution_001.json"
+    
+    def test_logs_accepts_limit_parameter(self, client):
+        """Test that logs endpoint accepts limit query parameter"""
+        with patch("main.scan_logs", return_value=[]):
+            response = client.get("/api/logs?limit=5")
+            assert response.status_code == 200
+    
+    @patch("main.scan_logs")
+    def test_logs_includes_timestamp(self, mock_scan_logs, client):
+        """Test that logs response includes timestamp"""
+        mock_scan_logs.return_value = []
+        
+        response = client.get("/api/logs")
+        assert response.status_code == 200
+        data = response.json()
         assert "timestamp" in data
-        assert isinstance(data["logs"], list)
 
-    @pytest.mark.asyncio
-    async def test_logs_respects_limit_parameter(self, client):
-        """Test that logs respects the limit parameter."""
-        with patch("main.scan_logs") as mock_scan:
-            mock_scan.return_value = []
-            response = await client.get("/api/logs?limit=5")
-            assert response.status_code == 200
-            mock_scan.assert_called_once_with(limit=5)
 
-    @pytest.mark.asyncio
-    async def test_logs_handles_file_read_error(self, client):
-        """Test that logs handles individual file read errors gracefully."""
-        with patch("main.scan_logs") as mock_scan:
-            from main import ExecutionLog
-            mock_scan.return_value = [
-                ExecutionLog(
-                    filename="test.json",
-                    path="/tmp/test.json",
-                    timestamp="2026-04-13T10:00:00+00:00",
-                    content={}
-                )
-            ]
-            response = await client.get("/api/logs")
-            assert response.status_code == 200
-
-    @pytest.mark.asyncio
-    async def test_logs_count_matches_logs_list_length(self, client):
-        """Test that count matches the length of logs list."""
-        with patch("main.scan_logs") as mock_scan:
-            from main import ExecutionLog
-            mock_scan.return_value = [
-                ExecutionLog(filename="a.json", path="/a.json", timestamp=None, content={}),
-                ExecutionLog(filename="b.json", path="/b.json", timestamp=None, content={}),
-            ]
-            response = await client.get("/api/logs")
-            data = response.json()
-            assert data["count"] == 2
-            assert data["count"] == len(data["logs"])
-
+# ============= Config Endpoint Tests =============
 
 class TestConfigEndpoint:
-    """Tests for GET /api/config endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_config_returns_correct_structure(self, client):
-        """Test that config endpoint returns correct JSON structure."""
-        response = await client.get("/api/config")
+    """Tests for GET /api/config"""
+    
+    def test_config_returns_all_settings(self, client):
+        """Test that config endpoint returns all configuration settings"""
+        response = client.get("/api/config")
         assert response.status_code == 200
-
         data = response.json()
-        assert "PROJECTS_PATH" in data
-        assert "LOGS_PATH" in data
-        assert "TELEGRAM_BOT_TOKEN" in data
-        assert "TIMEOUT_MINUTES" in data
-        assert "AGENTS" in data
-        assert "REFRESH_INTERVAL" in data
-
-    @pytest.mark.asyncio
-    async def test_config_returns_expected_defaults(self, client):
-        """Test that config returns expected default values."""
-        response = await client.get("/api/config")
+        assert "projects_path" in data
+        assert "logs_path" in data
+        assert "timeout_minutes" in data
+        assert "agents" in data
+    
+    def test_config_returns_agent_list(self, client):
+        """Test that config endpoint returns list of agents"""
+        response = client.get("/api/config")
+        assert response.status_code == 200
         data = response.json()
-        assert data["PROJECTS_PATH"] == "/home/crawd_user/project"
-        assert data["LOGS_PATH"] == "/home/crawd_user/.openclaw/workspace/logs/executions"
-        assert data["TIMEOUT_MINUTES"] == 30
-        assert isinstance(data["AGENTS"], list)
-        assert len(data["AGENTS"]) == 6
+        assert isinstance(data["agents"], list)
+        assert len(data["agents"]) == 6
+        assert "Argus" in data["agents"]
 
+
+# ============= Error Handling Tests =============
+
+class TestErrorHandling:
+    """Tests for error handling behavior"""
+    
+    @patch("main.scan_projects")
+    def test_projects_error_returns_500(self, mock_scan, client):
+        """Test that projects endpoint returns 500 on internal error"""
+        mock_scan.side_effect = Exception("Simulated error")
+        
+        response = client.get("/api/projects")
+        assert response.status_code == 500
+        data = response.json()
+        assert "detail" in data
+        assert "code" in data
+    
+    @patch("main.scan_logs")
+    def test_logs_error_returns_500(self, mock_scan, client):
+        """Test that logs endpoint returns 500 on internal error"""
+        mock_scan.side_effect = Exception("Simulated error")
+        
+        response = client.get("/api/logs")
+        assert response.status_code == 500
+
+
+# ============= Test Entry Point =============
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

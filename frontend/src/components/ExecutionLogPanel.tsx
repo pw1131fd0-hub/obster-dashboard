@@ -19,7 +19,7 @@ export function ExecutionLogPanel() {
 
   return (
     <section className="bg-secondary rounded-lg p-4 h-full shadow-lg">
-      <h2 className="text-lg font-semibold mb-4 text-text">Execution Logs</h2>
+      <h2 className="text-lg font-semibold mb-4 text-text">📜 執行 Log</h2>
       {loading && logs.length === 0 ? (
         <div className="flex items-center justify-center h-32">
           <div className="animate-pulse text-text-muted">Loading...</div>
