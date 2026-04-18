@@ -17,6 +17,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
+import requests_mock
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -27,6 +28,7 @@ from main import (
     CRONJOB_SERVICES,
     PROJECTS_PATH,
     LOGS_PATH,
+    TIMEOUT_MINUTES,
 )
 
 
@@ -145,7 +147,7 @@ class TestAgentsEndpoint:
 
     def test_agents_returns_agents_list(self, client):
         """Test that agents endpoint returns agents array."""
-        with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": ""}):
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": ""}):
             response = client.get("/api/agents")
             assert response.status_code == 200
             data = response.json()
@@ -155,7 +157,7 @@ class TestAgentsEndpoint:
 
     def test_agents_returns_timestamp(self, client):
         """Test that agents endpoint returns timestamp."""
-        with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": ""}):
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": ""}):
             response = client.get("/api/agents")
             assert response.status_code == 200
             data = response.json()
@@ -164,7 +166,7 @@ class TestAgentsEndpoint:
 
     def test_agents_with_no_token_returns_unknown(self, client):
         """Test that agents with no token returns unknown status."""
-        with patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": ""}):
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": ""}):
             response = client.get("/api/agents")
             assert response.status_code == 200
             data = response.json()

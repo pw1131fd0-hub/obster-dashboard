@@ -12,9 +12,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import requests
+from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Load .env file if present
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,8 +30,9 @@ LOGS_PATH = os.getenv("LOGS_PATH", "/home/crawd_user/.openclaw/workspace/logs/ex
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TIMEOUT_MINUTES = int(os.getenv("TIMEOUT_MINUTES", "30"))
 
-# Agent list
-AGENTS = ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
+# Agent list from environment variable (comma-separated)
+_agents_env = os.getenv("AGENTS", "Argus,Hephaestus,Atlas,Hestia,Hermes,Main")
+AGENTS = [a.strip() for a in _agents_env.split(",") if a.strip()]
 
 # Services to monitor for cronjobs
 CRONJOB_SERVICES = ["obster-monitor", "obster-cron", "openclaw-scheduler"]
@@ -46,7 +51,7 @@ class Project(BaseModel):
     path: str
     stage: str  # prd | dev | test | security
     iteration: int
-    quality_score: float
+    quality_score: int
     blocking_errors: List[str]
     updated_at: str
 
@@ -58,7 +63,7 @@ class ProjectResponse(BaseModel):
 
 class CronJob(BaseModel):
     name: str
-    status: str  # active | inactive | failed | error
+    status: str  # active | inactive | failed | error | timeout
     last_run: Optional[str]
     exit_code: Optional[int]
     recent_logs: List[str]
@@ -73,7 +78,7 @@ class Agent(BaseModel):
     name: str
     status: str  # healthy | unhealthy | unknown | error
     last_response: Optional[str]
-    minutes_ago: Optional[float]
+    minutes_ago: Optional[int]
 
 
 class AgentResponse(BaseModel):
@@ -85,7 +90,7 @@ class LogEntry(BaseModel):
     filename: str
     path: str
     timestamp: str
-    content: Any  # the JSON content
+    content: Dict[str, Any]
 
 
 class LogResponse(BaseModel):
@@ -95,18 +100,9 @@ class LogResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: str  # healthy
+    status: str
     uptime_seconds: float
     version: str
-
-
-class ConfigResponse(BaseModel):
-    PROJECTS_PATH: str
-    LOGS_PATH: str
-    TELEGRAM_BOT_TOKEN_SET: bool
-    TIMEOUT_MINUTES: int
-    AGENTS: List[str]
-    CRONJOB_SERVICES: List[str]
 
 
 # ============ FastAPI App ============
@@ -172,7 +168,7 @@ def get_projects():
                     path=str(project_dir),
                     stage=data.get("stage", "unknown"),
                     iteration=data.get("iteration", 0),
-                    quality_score=data.get("quality_score", 0.0),
+                    quality_score=data.get("quality_score", 0),
                     blocking_errors=data.get("blocking_errors", []),
                     updated_at=data.get("updated_at", ""),
                 )
@@ -348,7 +344,7 @@ def get_agents(timeout_minutes: int = Query(default=30, ge=1, le=1440)):
                         last_time = datetime.fromisoformat(str(last_response).replace("Z", "+00:00"))
 
                     delta = now - last_time
-                    minutes_ago = delta.total_seconds() / 60
+                    minutes_ago = int(delta.total_seconds() / 60)
 
                     if minutes_ago >= timeout_minutes:
                         status = "unhealthy"
@@ -359,7 +355,7 @@ def get_agents(timeout_minutes: int = Query(default=30, ge=1, le=1440)):
                         name=agent_name,
                         status=status,
                         last_response=last_response,
-                        minutes_ago=round(minutes_ago, 2),
+                        minutes_ago=minutes_ago,
                     ))
                 except (ValueError, OSError) as e:
                     logger.error(f"Error parsing time for {agent_name}: {e}")
@@ -444,17 +440,17 @@ def get_logs(limit: int = Query(default=20, ge=1, le=100)):
     )
 
 
-@app.get("/api/config", response_model=ConfigResponse)
+@app.get("/api/config")
 def get_config():
     """Return system configuration (non-sensitive)."""
-    return ConfigResponse(
-        PROJECTS_PATH=PROJECTS_PATH,
-        LOGS_PATH=LOGS_PATH,
-        TELEGRAM_BOT_TOKEN_SET=bool(TELEGRAM_BOT_TOKEN),
-        TIMEOUT_MINUTES=TIMEOUT_MINUTES,
-        AGENTS=AGENTS,
-        CRONJOB_SERVICES=CRONJOB_SERVICES,
-    )
+    return {
+        "PROJECTS_PATH": PROJECTS_PATH,
+        "LOGS_PATH": LOGS_PATH,
+        "TELEGRAM_BOT_TOKEN_SET": bool(TELEGRAM_BOT_TOKEN),
+        "TIMEOUT_MINUTES": TIMEOUT_MINUTES,
+        "AGENTS": AGENTS,
+        "CRONJOB_SERVICES": CRONJOB_SERVICES,
+    }
 
 
 if __name__ == "__main__":

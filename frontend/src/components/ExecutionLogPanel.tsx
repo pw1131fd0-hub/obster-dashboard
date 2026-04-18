@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { useDashboard } from '../context/DashboardContext';
-import type { LogEntry } from '../types';
+import { useState } from 'react'
+import { useDashboard } from '../context/DashboardContext'
+import type { LogEntry } from '../types'
 
 function LogEntryCard({ log }: { log: LogEntry }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="bg-primary rounded-lg p-4 border border-slate-700">
@@ -12,10 +12,10 @@ function LogEntryCard({ log }: { log: LogEntry }) {
         className="w-full flex items-center justify-between text-left"
       >
         <div>
-          <h3 className="font-medium text-text">{log.filename}</h3>
+          <h3 className="font-medium text-text-main">{log.filename}</h3>
           <p className="text-sm text-text-muted">{log.path}</p>
           <p className="text-xs text-text-muted mt-1">
-            {new Date(log.timestamp).toLocaleString()}
+            {new Date(log.timestamp).toLocaleString('zh-TW')}
           </p>
         </div>
         <span className="text-text-muted">
@@ -24,7 +24,7 @@ function LogEntryCard({ log }: { log: LogEntry }) {
       </button>
       {expanded && (
         <div className="mt-3 bg-secondary rounded p-3 overflow-x-auto">
-          <pre className="font-mono text-xs text-text whitespace-pre-wrap">
+          <pre className="font-mono text-xs text-text-main whitespace-pre-wrap">
             {typeof log.content === 'string'
               ? log.content
               : JSON.stringify(log.content, null, 2)}
@@ -32,24 +32,27 @@ function LogEntryCard({ log }: { log: LogEntry }) {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 export default function ExecutionLogPanel() {
-  const { state } = useDashboard();
+  const { state } = useDashboard()
+  const displayedLogs = state.logs.slice(0, 20)
 
   return (
     <section className="bg-secondary rounded-lg p-4 border border-slate-700">
-      <h2 className="text-lg font-semibold mb-4">執行日誌</h2>
-      {state.logs.length === 0 ? (
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        📜 執行日誌
+      </h2>
+      {displayedLogs.length === 0 ? (
         <p className="text-text-muted">暂无日誌資料</p>
       ) : (
         <div className="space-y-4">
-          {state.logs.map((log, index) => (
+          {displayedLogs.map((log, index) => (
             <LogEntryCard key={index} log={log} />
           ))}
         </div>
       )}
     </section>
-  );
+  )
 }

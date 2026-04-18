@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useDashboard } from '../context/DashboardContext';
-import type { CronJob } from '../types';
+import { useState } from 'react'
+import { useDashboard } from '../context/DashboardContext'
+import type { CronJob } from '../types'
 
 const statusColors: Record<CronJob['status'], string> = {
   active: 'text-success',
@@ -8,17 +8,17 @@ const statusColors: Record<CronJob['status'], string> = {
   failed: 'text-error',
   error: 'text-error',
   timeout: 'text-error',
-};
+}
 
 function LogToggle({ logs }: { logs: string[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const displayLogs = logs.slice(0, 5);
+  const [expanded, setExpanded] = useState(false)
+  const displayLogs = logs.slice(0, 5)
 
   return (
     <div className="mt-2">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="text-sm text-text-muted hover:text-text transition-colors"
+        className="text-sm text-text-muted hover:text-text-main transition-colors"
       >
         {expanded ? '▲ 隱藏日誌' : '▼ 顯示日誌'}
       </button>
@@ -33,15 +33,17 @@ function LogToggle({ logs }: { logs: string[] }) {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 export default function CronJobPanel() {
-  const { state } = useDashboard();
+  const { state } = useDashboard()
 
   return (
     <section className="bg-secondary rounded-lg p-4 border border-slate-700">
-      <h2 className="text-lg font-semibold mb-4">Cron Job 監控</h2>
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        ⏰ Cron Job 監控
+      </h2>
       {state.cronjobs.length === 0 ? (
         <p className="text-text-muted">暂无 cron job 資料</p>
       ) : (
@@ -49,7 +51,7 @@ export default function CronJobPanel() {
           {state.cronjobs.map((job, index) => (
             <div key={index} className="bg-primary rounded-lg p-4 border border-slate-700">
               <div className="flex items-start justify-between mb-2">
-                <h3 className="font-medium text-text">{job.name}</h3>
+                <h3 className="font-medium text-text-main">{job.name}</h3>
                 <span className={`text-sm font-medium ${statusColors[job.status]}`}>
                   {job.status}
                 </span>
@@ -57,8 +59,8 @@ export default function CronJobPanel() {
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-text-muted">Last Run:</span>
-                  <span className="ml-2 text-text">
-                    {job.last_run ? new Date(job.last_run).toLocaleString() : 'N/A'}
+                  <span className="ml-2 text-text-main">
+                    {job.last_run ? new Date(job.last_run).toLocaleString('zh-TW') : 'N/A'}
                   </span>
                 </div>
                 <div>
@@ -74,5 +76,5 @@ export default function CronJobPanel() {
         </div>
       )}
     </section>
-  );
+  )
 }

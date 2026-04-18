@@ -1,24 +1,25 @@
 #!/bin/bash
 set -e
 
-echo "Starting Obster Dashboard in development mode..."
+echo "Starting obster-dashboard in development mode..."
 
-# Start backend in background
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
+# Check if Docker is running
+if ! docker info > /dev/null 2>&1; then
+    echo "Error: Docker is not running"
+    exit 1
+fi
 
-# Start frontend dev server
-cd ../frontend
-npm install
-npm run dev &
-FRONTEND_PID=$!
+# Build and start containers
+echo "Building containers..."
+docker-compose build --no-cache
 
-echo "Development servers started:"
-echo "  Backend: http://localhost:8000"
-echo "  Frontend: http://localhost:5173"
+echo "Starting containers..."
+docker-compose up -d
+
+echo ""
+echo "Dashboard is running:"
+echo "  Frontend: http://localhost"
+echo "  Backend API: http://localhost:8000"
 echo "  API Docs: http://localhost:8000/docs"
-
-# Wait for both processes
-wait $BACKEND_PID $FRONTEND_PID
+echo ""
+echo "View logs with: docker-compose logs -f"
