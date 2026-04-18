@@ -1,15 +1,5 @@
-import { createContext, useContext, useReducer, useCallback, useEffect, ReactNode } from 'react';
-import type {
-  DashboardState,
-  DashboardAction,
-  ProjectResponse,
-  CronJobResponse,
-  AgentResponse,
-  LogResponse,
-} from '../types';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
-const REFRESH_INTERVAL = 30000;
+import React, { createContext, useContext, useReducer, useCallback, useEffect, ReactNode } from 'react';
+import type { DashboardState, DashboardAction, ProjectResponse, CronJobResponse, AgentResponse, LogResponse } from '../types';
 
 const initialState: DashboardState = {
   projects: [],
@@ -30,7 +20,7 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
         ...state,
         loading: false,
         ...action.payload,
-        lastUpdated: new Date().toISOString(),
+        lastUpdated: new Date(),
       };
     case 'FETCH_ERROR':
       return { ...state, loading: false, error: action.payload };
@@ -40,65 +30,50 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
 }
 
 interface DashboardContextValue extends DashboardState {
-  refresh: () => void;
+  fetchData: () => Promise<void>;
 }
 
-const DashboardContext = createContext<DashboardContextValue | null>(null);
+const DashboardContext = createContext<DashboardContextValue | undefined>(undefined);
 
-interface DashboardProviderProps {
-  children: ReactNode;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const REFRESH_INTERVAL = 30000;
+
+async function fetchJSON<T>(url: string): Promise<T> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  return response.json() as Promise<T>;
 }
 
-export function DashboardProvider({ children }: DashboardProviderProps) {
+export function DashboardProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
   const fetchData = useCallback(async () => {
     dispatch({ type: 'FETCH_START' });
 
     try {
-      const [projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/projects`),
-        fetch(`${API_BASE_URL}/cronjobs`),
-        fetch(`${API_BASE_URL}/agents`),
-        fetch(`${API_BASE_URL}/logs`),
-      ]);
-
-      if (!projectsRes.ok || !cronjobsRes.ok || !agentsRes.ok || !logsRes.ok) {
-        throw new Error('Failed to fetch data from API');
-      }
-
-      const [projectsData, cronjobsData, agentsData, logsData]: [
-        ProjectResponse,
-        CronJobResponse,
-        AgentResponse,
-        LogResponse,
-      ] = await Promise.all([
-        projectsRes.json(),
-        cronjobsRes.json(),
-        agentsRes.json(),
-        logsRes.json(),
+      const [projectsData, cronjobsData, agentsData, logsData] = await Promise.all([
+        fetchJSON<ProjectResponse>(`${API_BASE_URL}/projects`),
+        fetchJSON<CronJobResponse>(`${API_BASE_URL}/cronjobs`),
+        fetchJSON<AgentResponse>(`${API_BASE_URL}/agents`),
+        fetchJSON<LogResponse>(`${API_BASE_URL}/logs`),
       ]);
 
       dispatch({
         type: 'FETCH_SUCCESS',
         payload: {
-          projects: projectsData.projects || [],
-          cronjobs: cronjobsData.cronjobs || [],
-          agents: agentsData.agents || [],
-          logs: logsData.logs || [],
+          projects: projectsData.projects,
+          cronjobs: cronjobsData.cronjobs,
+          agents: agentsData.agents,
+          logs: logsData.logs,
         },
       });
     } catch (error) {
-      dispatch({
-        type: 'FETCH_ERROR',
-        payload: error instanceof Error ? error.message : 'Unknown error occurred',
-      });
+      const message = error instanceof Error ? error.message : 'Unknown error occurred';
+      dispatch({ type: 'FETCH_ERROR', payload: message });
     }
   }, []);
-
-  const refresh = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
 
   useEffect(() => {
     fetchData();
@@ -108,7 +83,7 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
 
   const value: DashboardContextValue = {
     ...state,
-    refresh,
+    fetchData,
   };
 
   return (
@@ -120,7 +95,7 @@ export function DashboardProvider({ children }: DashboardProviderProps) {
 
 export function useDashboard(): DashboardContextValue {
   const context = useContext(DashboardContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useDashboard must be used within a DashboardProvider');
   }
   return context;

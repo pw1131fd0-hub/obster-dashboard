@@ -24,7 +24,7 @@ services:
       - "8000:8000"
     volumes:
       - /home/crawd_user/project:/home/crawd_user/project:ro
-      - /home/crawd_user/.openclaw/workspace/logs:/home/crawd_user/.openclaw/workspace/logs:ro
+      - /home/crawd_user/.openclaw/workspace/logs/executions:/home/crawd_user/.openclaw/workspace/logs/executions:ro
       - /var/run/dbus:/var/run/dbus:ro
       - /run/systemd:/run/systemd:ro
     environment:
