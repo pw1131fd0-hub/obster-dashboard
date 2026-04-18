@@ -1,28 +1,21 @@
-# Single-stage frontend build using node:20-alpine
+# Standalone frontend build container
+# Use this to build the frontend without running it
+# Outputs build artifacts to /app/frontend/dist
 FROM node:20-alpine AS builder
 
 WORKDIR /app/frontend
 
-# Copy package files and install dependencies
+# Copy package files
 COPY frontend/package.json frontend/package-lock.json* ./
+
+# Install dependencies
 RUN npm ci
 
-# Copy frontend source and build
+# Copy frontend source
 COPY frontend/ ./
+
+# Build the frontend
 RUN npm run build
 
-# Create a minimal production image with just the built assets
-FROM nginx:alpine
-
-# Remove default nginx config
-RUN rm /etc/nginx/conf.d/default.conf
-
-# Copy built frontend assets
-COPY --from=builder /app/frontend/dist /usr/share/nginx/html
-
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
+# This image is build-only. To extract artifacts:
+# docker run --rm -v $(pwd)/dist:/output frontend-builder sh -c "cp -r /app/frontend/dist/* /output"

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import ProjectStatusPanel from '../../components/ProjectStatusPanel';
+import { ProjectStatusPanel } from '../../components/ProjectStatusPanel';
 import { setupFetchMock } from '../testUtils';
 
 describe('ProjectStatusPanel', () => {
@@ -33,22 +33,23 @@ describe('ProjectStatusPanel', () => {
 
   it('displays project name when projects exist', () => {
     render(<ProjectStatusPanel />);
-    expect(screen.getByText('obster-dashboard')).toBeDefined();
-    expect(screen.getByText('obster-worker')).toBeDefined();
+    expect(screen.getByText('obster-dashboard')).toBeInTheDocument();
+    expect(screen.getByText('obster-worker')).toBeInTheDocument();
   });
 
   it('displays stage badges with correct colors', () => {
     render(<ProjectStatusPanel />);
     const devBadge = screen.getByText('dev');
     const prdBadge = screen.getByText('prd');
-    expect(devBadge).toBeDefined();
-    expect(prdBadge).toBeDefined();
+    expect(devBadge).toBeInTheDocument();
+    expect(prdBadge).toBeInTheDocument();
   });
 
-  it('shows quality score below threshold in red', () => {
+  it('shows quality score warning when below 85', () => {
     render(<ProjectStatusPanel />);
-    const scoreElements = screen.getAllByText('Score:');
-    expect(scoreElements.length).toBeGreaterThan(0);
+    // obster-worker has quality_score 78, which is < 85
+    const lowScoreElements = screen.getAllByText(/^78$/);
+    expect(lowScoreElements.length).toBeGreaterThan(0);
   });
 
   it('displays no projects message when list is empty', () => {
@@ -56,6 +57,6 @@ describe('ProjectStatusPanel', () => {
       '/api/projects': { projects: [] },
     });
     render(<ProjectStatusPanel />);
-    expect(screen.getByText('No projects available')).toBeDefined();
+    expect(screen.getByText('No projects found')).toBeInTheDocument();
   });
 });

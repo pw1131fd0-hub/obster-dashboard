@@ -2,10 +2,6 @@ import { createContext, useContext, useReducer, useCallback, useEffect, ReactNod
 import type {
   DashboardState,
   DashboardAction,
-  Project,
-  CronJob,
-  Agent,
-  ExecutionLog,
   ProjectResponse,
   CronJobResponse,
   AgentResponse,

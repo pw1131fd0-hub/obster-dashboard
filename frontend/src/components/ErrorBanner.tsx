@@ -1,9 +1,9 @@
 import { useDashboard } from '../context/DashboardContext';
 
 export function ErrorBanner() {
-  const { state, refresh, dispatch } = useDashboard();
+  const { error, refresh } = useDashboard();
 
-  if (!state.error) return null;
+  if (!error) return null;
 
   return (
     <div
@@ -27,7 +27,7 @@ export function ErrorBanner() {
             />
           </svg>
         </span>
-        <p className="text-error font-medium text-sm">{state.error}</p>
+        <p className="text-error font-medium text-sm">{error}</p>
       </div>
 
       <div className="flex gap-2 shrink-0">
@@ -41,20 +41,7 @@ export function ErrorBanner() {
             focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error
           "
         >
-          重新整理
-        </button>
-        <button
-          type="button"
-          onClick={() => dispatch({ type: 'CLEAR_ERROR' })}
-          aria-label="Dismiss error"
-          className="
-            px-3 py-1.5 text-sm font-medium rounded
-            bg-white/5 text-text-muted hover:bg-white/10
-            transition-colors duration-150
-            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text-muted
-          "
-        >
-          Dismiss
+          Retry
         </button>
       </div>
     </div>

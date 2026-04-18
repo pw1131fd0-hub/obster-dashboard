@@ -1,29 +1,25 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import CronJobPanel from '../../components/CronJobPanel';
+import { CronJobPanel } from '../../components/CronJobPanel';
 import { setupFetchMock } from '../testUtils';
 
 describe('CronJobPanel', () => {
   beforeEach(() => {
     setupFetchMock({
       '/api/cronjobs': {
-        cron_jobs: [
+        cronjobs: [
           {
-            id: 'obster-monitor',
             name: 'obster-monitor',
-            schedule: '*/5 * * * *',
+            status: 'active',
             last_run: '2026-04-17T12:00:00.000Z',
-            last_exit_code: 0,
-            status: 'completed',
+            exit_code: 0,
             recent_logs: ['Process started', 'Task completed successfully'],
           },
           {
-            id: 'obster-cron',
             name: 'obster-cron',
-            schedule: '*/10 * * * *',
-            last_run: '2026-04-17T11:50:00.000Z',
-            last_exit_code: 1,
             status: 'failed',
+            last_run: '2026-04-17T11:50:00.000Z',
+            exit_code: 1,
             recent_logs: ['Error: Connection timeout'],
           },
         ],
@@ -33,8 +29,8 @@ describe('CronJobPanel', () => {
 
   it('displays cron job name', () => {
     render(<CronJobPanel />);
-    expect(screen.getByText('obster-monitor')).toBeDefined();
-    expect(screen.getByText('obster-cron')).toBeDefined();
+    expect(screen.getByText('obster-monitor')).toBeInTheDocument();
+    expect(screen.getByText('obster-cron')).toBeInTheDocument();
   });
 
   it('displays exit code with correct color', () => {
@@ -46,14 +42,14 @@ describe('CronJobPanel', () => {
   it('displays show logs button when logs exist', () => {
     render(<CronJobPanel />);
     const showLogsButton = screen.getByText('Show logs');
-    expect(showLogsButton).toBeDefined();
+    expect(showLogsButton).toBeInTheDocument();
   });
 
   it('displays no cron jobs message when list is empty', () => {
     setupFetchMock({
-      '/api/cronjobs': { cron_jobs: [] },
+      '/api/cronjobs': { cronjobs: [] },
     });
     render(<CronJobPanel />);
-    expect(screen.getByText('No cron jobs available')).toBeDefined();
+    expect(screen.getByText('No cron jobs found')).toBeInTheDocument();
   });
 });

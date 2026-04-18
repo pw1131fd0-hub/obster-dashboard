@@ -1,7 +1,7 @@
 import { useDashboard } from '../context/DashboardContext';
 
 export function Header() {
-  const { state, refresh } = useDashboard();
+  const { refresh, lastUpdated } = useDashboard();
 
   return (
     <header className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
@@ -25,8 +25,8 @@ export function Header() {
         <div className="text-right hidden sm:block">
           <p className="text-text-muted text-xs uppercase tracking-wide">Last updated</p>
           <p className="text-text text-sm font-mono tabular-nums">
-            {state.lastUpdated
-              ? new Date(state.lastUpdated).toLocaleTimeString()
+            {lastUpdated
+              ? new Date(lastUpdated).toLocaleTimeString()
               : 'Never'}
           </p>
         </div>
