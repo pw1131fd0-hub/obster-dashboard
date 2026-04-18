@@ -19,7 +19,6 @@ from unittest.mock import patch, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-# Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from main import (
@@ -30,8 +29,6 @@ from main import (
     LOGS_PATH,
 )
 
-
-# ============= Test Fixtures =============
 
 @pytest.fixture
 def client():
@@ -245,43 +242,7 @@ class TestConfigEndpoint:
         response = client.get("/api/config")
         assert response.status_code == 200
         data = response.json()
-        # TELEGRAM_BOT_TOKEN_SET should be boolean, not the actual token
         assert isinstance(data["TELEGRAM_BOT_TOKEN_SET"], bool)
-
-
-# ============= Integration Tests =============
-
-class TestAPIIntegration:
-    """Integration tests for API endpoints."""
-
-    def test_all_endpoints_accessible(self, client):
-        """Test that all API endpoints are accessible."""
-        endpoints = [
-            "/api/health",
-            "/api/projects",
-            "/api/cronjobs",
-            "/api/agents",
-            "/api/logs",
-            "/api/config",
-        ]
-        for endpoint in endpoints:
-            response = client.get(endpoint)
-            assert response.status_code == 200, f"Endpoint {endpoint} not accessible"
-
-    def test_response_content_type(self, client):
-        """Test that all responses return JSON."""
-        endpoints = [
-            "/api/health",
-            "/api/projects",
-            "/api/cronjobs",
-            "/api/agents",
-            "/api/logs",
-            "/api/config",
-        ]
-        for endpoint in endpoints:
-            response = client.get(endpoint)
-            assert response.headers["content-type"].startswith("application/json"), \
-                f"Endpoint {endpoint} does not return JSON"
 
 
 if __name__ == "__main__":

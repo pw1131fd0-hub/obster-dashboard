@@ -1,81 +1,55 @@
 import { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
+import type { LogEntry } from '../types';
 
-interface LogCardProps {
-  filename: string;
-  timestamp: string;
-  content: object;
-}
-
-function LogCard({ filename, timestamp, content }: LogCardProps) {
+function LogEntryCard({ log }: { log: LogEntry }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border border-gray-700 rounded p-3 mb-2">
+    <div className="bg-primary rounded-lg p-4 border border-slate-700">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between text-left focus:outline-none focus:ring-2 focus:ring-accent rounded"
+        className="w-full flex items-center justify-between text-left"
       >
         <div>
-          <div className="font-medium text-text text-sm">{filename}</div>
-          <div className="text-text-muted text-xs">{timestamp}</div>
+          <h3 className="font-medium text-text">{log.filename}</h3>
+          <p className="text-sm text-text-muted">{log.path}</p>
+          <p className="text-xs text-text-muted mt-1">
+            {new Date(log.timestamp).toLocaleString()}
+          </p>
         </div>
-        <div className="text-text-muted">
-          {expanded ? (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-            </svg>
-          ) : (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          )}
-        </div>
+        <span className="text-text-muted">
+          {expanded ? '▲' : '▼'}
+        </span>
       </button>
       {expanded && (
-        <div className="mt-3 bg-primary rounded p-3 font-mono text-xs text-text overflow-x-auto whitespace-pre">
-          {JSON.stringify(content, null, 2)}
+        <div className="mt-3 bg-secondary rounded p-3 overflow-x-auto">
+          <pre className="font-mono text-xs text-text whitespace-pre-wrap">
+            {typeof log.content === 'string'
+              ? log.content
+              : JSON.stringify(log.content, null, 2)}
+          </pre>
         </div>
       )}
     </div>
   );
 }
 
-export function ExecutionLogPanel() {
-  const { logs, loading } = useDashboard();
-
-  const sortedLogs = [...logs].sort((a, b) => {
-    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-  });
-
-  const latestLogs = sortedLogs.slice(0, 20);
-
-  if (loading && logs.length === 0) {
-    return (
-      <div className="bg-secondary rounded-lg p-4">
-        <h2 className="text-lg font-semibold text-text mb-4">Execution Logs</h2>
-        <div className="text-text-muted">Loading...</div>
-      </div>
-    );
-  }
+export default function ExecutionLogPanel() {
+  const { state } = useDashboard();
 
   return (
-    <div className="bg-secondary rounded-lg p-4">
-      <h2 className="text-lg font-semibold text-text mb-4">Execution Logs</h2>
-      {latestLogs.length === 0 ? (
-        <div className="text-text-muted">No logs found</div>
+    <section className="bg-secondary rounded-lg p-4 border border-slate-700">
+      <h2 className="text-lg font-semibold mb-4">執行日誌</h2>
+      {state.logs.length === 0 ? (
+        <p className="text-text-muted">暂无日誌資料</p>
       ) : (
-        <div className="max-h-96 overflow-y-auto">
-          {latestLogs.map((log) => (
-            <LogCard
-              key={log.path}
-              filename={log.filename}
-              timestamp={log.timestamp}
-              content={log.content}
-            />
+        <div className="space-y-4">
+          {state.logs.map((log, index) => (
+            <LogEntryCard key={index} log={log} />
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }

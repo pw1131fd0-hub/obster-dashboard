@@ -1,30 +1,10 @@
-import {
-  createContext,
-  useContext,
-  useReducer,
-  useCallback,
-  useEffect,
-  ReactNode,
-} from 'react';
-import type { DashboardState, Project, CronJob, Agent, ExecutionLog } from '../types';
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import type { DashboardState, Project, CronJob, Agent, LogEntry } from '../types';
 
-type DashboardAction =
+type Action =
   | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
-  | { type: 'FETCH_ERROR'; payload: string };
-
-interface DashboardContextValue {
-  state: DashboardState;
-  fetchData: () => void;
-  refresh: () => void;
-  projects: DashboardState['projects'];
-  cronjobs: DashboardState['cronjobs'];
-  agents: DashboardState['agents'];
-  logs: DashboardState['logs'];
-  loading: boolean;
-  error: string | null;
-  lastUpdated: string | null;
-}
+  | { type: 'FETCH_SUCCESS'; payload: { projects: Project[]; cronjobs: CronJob[]; agents: Agent[]; logs: LogEntry[] } }
+  | { type: 'FETCH_ERROR'; error: string };
 
 const initialState: DashboardState = {
   projects: [],
@@ -36,72 +16,60 @@ const initialState: DashboardState = {
   lastUpdated: null,
 };
 
-function dashboardReducer(
-  state: DashboardState,
-  action: DashboardAction
-): DashboardState {
+function dashboardReducer(state: DashboardState, action: Action): DashboardState {
   switch (action.type) {
     case 'FETCH_START':
       return { ...state, loading: true, error: null };
     case 'FETCH_SUCCESS':
       return {
         ...state,
-        ...action.payload,
         loading: false,
-        error: null,
-        lastUpdated: new Date().toISOString(),
+        ...action.payload,
+        lastUpdated: new Date(),
       };
     case 'FETCH_ERROR':
-      return { ...state, loading: false, error: action.payload };
+      return { ...state, loading: false, error: action.error };
     default:
       return state;
   }
 }
 
-const DashboardContext = createContext<DashboardContextValue | undefined>(
-  undefined
-);
+interface DashboardContextValue {
+  state: DashboardState;
+  refresh: () => void;
+}
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const DashboardContext = createContext<DashboardContextValue | null>(null);
 
-export function DashboardProvider({ children }: { children: ReactNode }) {
+export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
   const fetchData = useCallback(async () => {
     dispatch({ type: 'FETCH_START' });
     try {
       const [projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/projects`),
-        fetch(`${API_BASE_URL}/cronjobs`),
-        fetch(`${API_BASE_URL}/agents`),
-        fetch(`${API_BASE_URL}/logs`),
+        fetch('/api/projects'),
+        fetch('/api/cronjobs'),
+        fetch('/api/agents'),
+        fetch('/api/logs'),
       ]);
-
-      if (!projectsRes.ok || !cronjobsRes.ok || !agentsRes.ok || !logsRes.ok) {
-        throw new Error('Failed to fetch dashboard data');
-      }
-
-      const [projectsData, cronjobsData, agentsData, logsData] = await Promise.all([
+      const [projects, cronjobs, agents, logs] = await Promise.all([
         projectsRes.json(),
         cronjobsRes.json(),
         agentsRes.json(),
         logsRes.json(),
       ]);
-
       dispatch({
         type: 'FETCH_SUCCESS',
         payload: {
-          projects: (projectsData.projects || []) as Project[],
-          cronjobs: (cronjobsData.cronjobs || []) as CronJob[],
-          agents: (agentsData.agents || []) as Agent[],
-          logs: (logsData.logs || []) as ExecutionLog[],
+          projects: projects.projects || [],
+          cronjobs: cronjobs.cronjobs || [],
+          agents: agents.agents || [],
+          logs: logs.logs || [],
         },
       });
     } catch (err) {
-      dispatch({
-        type: 'FETCH_ERROR',
-        payload: err instanceof Error ? err.message : 'Unknown error',
-      });
+      dispatch({ type: 'FETCH_ERROR', error: (err as Error).message });
     }
   }, []);
 
@@ -116,29 +84,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   return (
-    <DashboardContext.Provider
-      value={{
-        state,
-        fetchData,
-        refresh,
-        projects: state.projects,
-        cronjobs: state.cronjobs,
-        agents: state.agents,
-        logs: state.logs,
-        loading: state.loading,
-        error: state.error,
-        lastUpdated: state.lastUpdated,
-      }}
-    >
+    <DashboardContext.Provider value={{ state, refresh }}>
       {children}
     </DashboardContext.Provider>
   );
 }
 
-export function useDashboard(): DashboardContextValue {
+export function useDashboard() {
   const context = useContext(DashboardContext);
-  if (context === undefined) {
-    throw new Error('useDashboard must be used within a DashboardProvider');
-  }
+  if (!context) throw new Error('useDashboard must be used within DashboardProvider');
   return context;
 }

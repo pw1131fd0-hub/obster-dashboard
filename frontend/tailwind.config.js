@@ -1,7 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
-  darkMode: 'class',
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
     extend: {
       colors: {
@@ -13,8 +15,8 @@ export default {
         success: '#22C55E',
         warning: '#F59E0B',
         error: '#EF4444',
-      },
+      }
     },
   },
   plugins: [],
-};
+}

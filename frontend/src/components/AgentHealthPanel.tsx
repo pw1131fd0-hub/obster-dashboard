@@ -1,67 +1,49 @@
 import { useDashboard } from '../context/DashboardContext';
 import type { Agent } from '../types';
 
-function getStatusIndicator(status: string): { color: string; label: string } {
-  switch (status) {
-    case 'healthy':
-      return { color: 'bg-success', label: 'Healthy' };
-    case 'unhealthy':
-      return { color: 'bg-error', label: 'Unhealthy' };
-    case 'error':
-      return { color: 'bg-error', label: 'Error' };
-    default:
-      return { color: 'bg-gray-500', label: 'Unknown' };
-  }
-}
+const statusColors: Record<Agent['status'], string> = {
+  healthy: 'text-success',
+  unhealthy: 'text-error',
+  unknown: 'text-gray-400',
+  error: 'text-error',
+};
 
-const AGENT_NAMES = ['Argus', 'Hephaestus', 'Atlas', 'Hestia', 'Hermes', 'Main'];
-
-export function AgentHealthPanel() {
-  const { agents, loading } = useDashboard();
-
-  if (loading && agents.length === 0) {
-    return (
-      <div className="bg-secondary rounded-lg p-4">
-        <h2 className="text-lg font-semibold text-text mb-4">Agent Health</h2>
-        <div className="text-text-muted">Loading...</div>
-      </div>
-    );
-  }
-
-  const agentMap = new Map(agents.map((a: Agent) => [a.name, a]));
-  const displayAgents: Agent[] = AGENT_NAMES.map((name) => {
-    return agentMap.get(name) || { name, status: 'unknown' as const, last_response: null, minutes_ago: null };
-  });
+export default function AgentHealthPanel() {
+  const { state } = useDashboard();
 
   return (
-    <div className="bg-secondary rounded-lg p-4">
-      <h2 className="text-lg font-semibold text-text mb-4">Agent Health</h2>
-      <div className="space-y-3">
-        {displayAgents.map((agent) => {
-          const indicator = getStatusIndicator(agent.status);
-          return (
-            <div key={agent.name} className="border border-gray-700 rounded p-3">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-text">{agent.name}</span>
-                <div className="flex items-center">
-                  <span className={`w-3 h-3 rounded-full ${indicator.color} mr-2`}></span>
-                  <span className={`text-sm ${indicator.color.replace('bg-', 'text-')}`}>
-                    {indicator.label}
+    <section className="bg-secondary rounded-lg p-4 border border-slate-700">
+      <h2 className="text-lg font-semibold mb-4">Agent 健康狀態</h2>
+      {state.agents.length === 0 ? (
+        <p className="text-text-muted">暂无 agent 資料</p>
+      ) : (
+        <div className="space-y-4">
+          {state.agents.map((agent, index) => (
+            <div key={index} className="bg-primary rounded-lg p-4 border border-slate-700">
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-medium text-text">{agent.name}</h3>
+                <span className={`text-sm font-medium ${statusColors[agent.status]}`}>
+                  {agent.status}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-text-muted">Last Response:</span>
+                  <span className="ml-2 text-text">
+                    {agent.last_response ? new Date(agent.last_response).toLocaleString() : 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-text-muted">Minutes Ago:</span>
+                  <span className="ml-2 text-text">
+                    {agent.minutes_ago !== null ? `${agent.minutes_ago} min` : 'N/A'}
                   </span>
                 </div>
               </div>
-              <div className="mt-2 text-sm">
-                <div className="text-text-muted">
-                  Last Response: <span className="text-text">{agent.last_response || 'N/A'}</span>
-                </div>
-                <div className="text-text-muted">
-                  Minutes Ago: <span className="text-text">{agent.minutes_ago ?? '—'}</span>
-                </div>
-              </div>
             </div>
-          );
-        })}
-      </div>
-    </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

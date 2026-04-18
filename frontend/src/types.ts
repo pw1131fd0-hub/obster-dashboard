@@ -27,31 +27,7 @@ export interface LogEntry {
   filename: string;
   path: string;
   timestamp: string;
-  content: object;
-}
-
-// Alias for backward compatibility
-export type ExecutionLog = LogEntry;
-
-export interface ProjectResponse {
-  projects: Project[];
-  timestamp: string;
-}
-
-export interface CronJobResponse {
-  cronjobs: CronJob[];
-  timestamp: string;
-}
-
-export interface AgentResponse {
-  agents: Agent[];
-  timestamp: string;
-}
-
-export interface LogResponse {
-  logs: LogEntry[];
-  count: number;
-  timestamp: string;
+  content: any;
 }
 
 export interface DashboardState {
@@ -61,10 +37,5 @@ export interface DashboardState {
   logs: LogEntry[];
   loading: boolean;
   error: string | null;
-  lastUpdated: string | null;
+  lastUpdated: Date | null;
 }
-
-export type DashboardAction =
-  | { type: 'FETCH_START' }
-  | { type: 'FETCH_SUCCESS'; payload: Omit<DashboardState, 'loading' | 'error' | 'lastUpdated'> }
-  | { type: 'FETCH_ERROR'; payload: string };
