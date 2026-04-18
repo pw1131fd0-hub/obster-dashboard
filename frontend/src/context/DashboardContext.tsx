@@ -1,11 +1,9 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import type { DashboardState, DashboardAction, Project, CronJob, Agent, ExecutionLog } from '../types';
 
 interface DashboardContextType {
   state: DashboardState;
   fetchData: () => Promise<void>;
-  refresh: () => Promise<void>;
 }
 
 const initialState: DashboardState = {
@@ -38,9 +36,9 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE_URL = '/api';
 
-export function DashboardProvider({ children }: { children: React.ReactNode }) {
+export function DashboardProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
   const fetchData = useCallback(async (): Promise<void> => {
@@ -86,7 +84,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, [fetchData]);
 
   return (
-    <DashboardContext.Provider value={{ state, fetchData, refresh: fetchData }}>
+    <DashboardContext.Provider value={{ state, fetchData }}>
       {children}
     </DashboardContext.Provider>
   );

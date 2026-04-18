@@ -7,12 +7,12 @@ function ExecutionLogPanel() {
 
   return (
     <section className="bg-secondary rounded-xl p-6">
-      <h2 className="text-lg font-semibold mb-4">Execution Logs</h2>
+      <h2 className="text-lg font-semibold mb-4">📜 執行 Log</h2>
       {state.logs.length === 0 ? (
-        <p className="text-text-muted">No logs available</p>
+        <p className="text-text-muted">暂無 Log 資料</p>
       ) : (
         <div className="space-y-4">
-          {state.logs.map((log) => (
+          {state.logs.slice(0, 20).map((log) => (
             <div key={log.filename} className="border border-slate-700 rounded-lg p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -23,7 +23,7 @@ function ExecutionLogPanel() {
                   onClick={() => setExpandedLog(expandedLog === log.filename ? null : log.filename)}
                   className="text-sm text-accent hover:underline"
                 >
-                  {expandedLog === log.filename ? 'Hide Content' : 'Expand Content'}
+                  {expandedLog === log.filename ? 'Collapse' : 'Expand'}
                 </button>
               </div>
               {expandedLog === log.filename && (
@@ -35,6 +35,9 @@ function ExecutionLogPanel() {
               )}
             </div>
           ))}
+          {state.logs.length > 0 && (
+            <p className="text-sm text-text-muted">Total: {state.logs.length} logs</p>
+          )}
         </div>
       )}
     </section>

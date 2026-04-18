@@ -1,26 +1,7 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-
-# Node
 node_modules/
 dist/
-npm-debug.log*
-
-# Environment
+__pycache__/
+*.pyc
 .env
-.env.local
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
 .DS_Store
-Thumbs.db.ralph/
-.ralph/
+*.log.ralph/

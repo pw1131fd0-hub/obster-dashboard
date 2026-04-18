@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background-color: #0F172A;
+  color: #F8FAFC;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -12,4 +18,7 @@
 ::-webkit-scrollbar-thumb {
   background: #475569;
   border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }

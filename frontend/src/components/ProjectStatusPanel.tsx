@@ -12,9 +12,9 @@ function ProjectStatusPanel() {
 
   return (
     <section className="bg-secondary rounded-xl p-6">
-      <h2 className="text-lg font-semibold mb-4">Project Status</h2>
+      <h2 className="text-lg font-semibold mb-4">📋 開發任務狀態</h2>
       {state.projects.length === 0 ? (
-        <p className="text-text-muted">No projects available</p>
+        <p className="text-text-muted">暂無專案資料</p>
       ) : (
         <div className="space-y-4">
           {state.projects.map((project) => (
@@ -22,7 +22,7 @@ function ProjectStatusPanel() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium">{project.name}</h3>
                 <span className={`px-2 py-1 rounded text-xs text-white ${stageColors[project.stage] || 'bg-slate-600'}`}>
-                  {project.stage.toUpperCase()}
+                  {project.stage}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">

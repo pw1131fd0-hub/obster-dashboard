@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useDashboard } from './context/DashboardContext';
 import { ProjectStatusPanel } from './components/ProjectStatusPanel';
 import { CronJobPanel } from './components/CronJobPanel';
@@ -9,27 +9,14 @@ const REFRESH_INTERVAL = 30;
 
 function App() {
   const { state, fetchData } = useDashboard();
-  const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
 
   const handleRefresh = useCallback(() => {
     void fetchData();
-    setCountdown(REFRESH_INTERVAL);
   }, [fetchData]);
-
-  useEffect(() => {
-    if (!state.loading && countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown, state.loading]);
-
-  useEffect(() => {
-    if (!state.loading) {
-      setCountdown(REFRESH_INTERVAL);
-    }
-  }, [state.loading, state.lastUpdated]);
 
   const formatLastUpdated = (date: Date | null): string => {
     if (!date) return 'Never';
@@ -45,16 +32,9 @@ function App() {
             <p className="text-sm text-text-muted">小龍蝦系統監控儀表板 | VPS: srv1318420</p>
           </div>
           <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  state.loading ? 'bg-warning animate-pulse' : 'bg-success'
-                }`}
-              />
-              <span className="text-sm text-text-muted">
-                {state.loading ? 'Refreshing...' : `Next in ${countdown}s`}
-              </span>
-            </div>
+            <span className="text-sm text-text-muted">
+              每 30 秒自動刷新
+            </span>
             <span className="text-sm text-text-muted">
               Last: {formatLastUpdated(state.lastUpdated)}
             </span>
