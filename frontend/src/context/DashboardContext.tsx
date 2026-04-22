@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import type { DashboardState, DashboardAction, Project, CronJob, Agent, ExecutionLog } from '../types';
 
 interface DashboardContextType {
   state: DashboardState;
   fetchData: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const initialState: DashboardState = {
@@ -84,7 +85,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   return (
-    <DashboardContext.Provider value={{ state, fetchData }}>
+    <DashboardContext.Provider value={{ state, fetchData, refresh: fetchData }}>
       {children}
     </DashboardContext.Provider>
   );

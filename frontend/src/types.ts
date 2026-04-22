@@ -30,6 +30,8 @@ export interface ExecutionLog {
   content: Record<string, unknown>;
 }
 
+export type LogEntry = ExecutionLog;
+
 export interface ProjectResponse {
   projects: Project[];
   timestamp: string;
