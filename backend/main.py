@@ -7,7 +7,7 @@ import os
 import json
 import time
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -211,7 +211,7 @@ def get_projects():
     projects_path = Path(PROJECTS_PATH)
 
     if not projects_path.exists():
-        return ProjectResponse(projects=[], timestamp=datetime.utcnow().isoformat())
+        return ProjectResponse(projects=[], timestamp=datetime.now(timezone.utc).isoformat())
 
     for subdir in projects_path.iterdir():
         if not subdir.is_dir():
@@ -233,7 +233,7 @@ def get_projects():
 
     return ProjectResponse(
         projects=projects,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
 
@@ -288,7 +288,7 @@ def get_cronjobs():
 
     return CronJobResponse(
         cronjobs=cronjobs,
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
 
@@ -296,7 +296,7 @@ def get_cronjobs():
 def get_agents():
     """Poll Telegram Bot API to determine agent health."""
     agents = []
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # If no token, return all as unknown
     if not TELEGRAM_BOT_TOKEN:
@@ -368,7 +368,7 @@ def get_logs(limit: int = 20):
     logs_path = Path(LOGS_PATH)
 
     if not logs_path.exists():
-        return LogResponse(logs=[], count=0, timestamp=datetime.utcnow().isoformat())
+        return LogResponse(logs=[], count=0, timestamp=datetime.now(timezone.utc).isoformat())
 
     # Find all JSON files
     json_files = list(logs_path.glob("*.json"))
@@ -398,7 +398,7 @@ def get_logs(limit: int = 20):
     return LogResponse(
         logs=logs,
         count=len(logs),
-        timestamp=datetime.utcnow().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
 
