@@ -1,5 +1,4 @@
 version: '3.8'
-
 services:
   nginx:
     build:
@@ -13,8 +12,6 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     restart: unless-stopped
-    depends_on:
-      - backend
 
   backend:
     build:
@@ -32,6 +29,5 @@ services:
       - LOGS_PATH=/home/crawd_user/.openclaw/workspace/logs/executions
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TIMEOUT_MINUTES=30
-      - REFRESH_INTERVAL=30000
     restart: unless-stopped
     privileged: true
