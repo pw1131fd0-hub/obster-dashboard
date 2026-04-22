@@ -6,6 +6,7 @@ Monitors OpenClaw distributed system: projects, cronjobs, agents, and logs.
 import os
 import json
 import time
+import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,6 +16,13 @@ import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("obster_dashboard")
 
 # Version
 VERSION = "1.0.0"
@@ -132,7 +140,8 @@ def read_json_file(filepath: Path) -> Optional[dict]:
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
-    except (IOError, json.JSONDecodeError):
+    except (IOError, json.JSONDecodeError) as e:
+        logger.error(f"Failed to read JSON file {filepath}: {e}")
         return None
 
 
@@ -151,7 +160,14 @@ def parse_systemctl_show(service_name: str) -> dict:
                 key, value = line.split("=", 1)
                 data[key] = value
         return data
-    except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+    except subprocess.TimeoutExpired:
+        logger.warning(f"systemctl show timed out for {service_name}")
+        return {}
+    except subprocess.SubprocessError as e:
+        logger.error(f"systemctl show failed for {service_name}: {e}")
+        return {}
+    except OSError as e:
+        logger.error(f"OS error running systemctl show for {service_name}: {e}")
         return {}
 
 
@@ -172,7 +188,14 @@ def get_journal_logs(service_name: str, limit: int = 10) -> list[str]:
         )
         lines = result.stdout.strip().split("\n")
         return [line for line in lines if line] if lines else []
-    except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError):
+    except subprocess.TimeoutExpired:
+        logger.warning(f"journalctl timed out for {service_name}")
+        return []
+    except subprocess.SubprocessError as e:
+        logger.error(f"journalctl failed for {service_name}: {e}")
+        return []
+    except OSError as e:
+        logger.error(f"OS error running journalctl for {service_name}: {e}")
         return []
 
 
@@ -187,8 +210,13 @@ def poll_telegram_get_updates() -> list[dict]:
         data = response.json()
         if data.get("ok"):
             return data.get("result", [])
+        logger.warning(f"Telegram API returned ok=false: {data}")
         return []
-    except (requests.RequestException, ValueError):
+    except requests.RequestException as e:
+        logger.error(f"Telegram API request failed: {e}")
+        return []
+    except ValueError as e:
+        logger.error(f"Failed to parse Telegram API response: {e}")
         return []
 
 
@@ -211,25 +239,31 @@ def get_projects():
     projects_path = Path(PROJECTS_PATH)
 
     if not projects_path.exists():
+        logger.warning(f"Projects path does not exist: {projects_path}")
         return ProjectResponse(projects=[], timestamp=datetime.now(timezone.utc).isoformat())
 
-    for subdir in projects_path.iterdir():
-        if not subdir.is_dir():
-            continue
-        dev_status_path = subdir / "docs" / ".dev_status.json"
-        if dev_status_path.exists():
-            data = read_json_file(dev_status_path)
-            if data:
-                project = Project(
-                    name=subdir.name,
-                    path=str(subdir),
-                    stage=data.get("stage", "unknown"),
-                    iteration=data.get("iteration", 0),
-                    quality_score=data.get("quality_score", 0.0),
-                    blocking_errors=data.get("blocking_errors", []),
-                    updated_at=data.get("updated_at", ""),
-                )
-                projects.append(project)
+    try:
+        for subdir in projects_path.iterdir():
+            if not subdir.is_dir():
+                continue
+            dev_status_path = subdir / "docs" / ".dev_status.json"
+            if dev_status_path.exists():
+                data = read_json_file(dev_status_path)
+                if data:
+                    project = Project(
+                        name=subdir.name,
+                        path=str(subdir),
+                        stage=data.get("stage", "unknown"),
+                        iteration=data.get("iteration", 0),
+                        quality_score=data.get("quality_score", 0.0),
+                        blocking_errors=data.get("blocking_errors", []),
+                        updated_at=data.get("updated_at", ""),
+                    )
+                    projects.append(project)
+    except PermissionError as e:
+        logger.error(f"Permission denied accessing projects path: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error scanning projects: {e}")
 
     return ProjectResponse(
         projects=projects,
