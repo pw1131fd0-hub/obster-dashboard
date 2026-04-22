@@ -324,7 +324,7 @@ def get_agents():
             continue
 
         try:
-            msg_time = datetime.fromtimestamp(int(date_str))
+            msg_time = datetime.fromtimestamp(int(date_str), tz=timezone.utc)
         except (ValueError, TypeError):
             continue
 
