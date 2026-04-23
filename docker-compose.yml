@@ -11,6 +11,8 @@ services:
       - /run/systemd:/run/systemd:ro
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    depends_on:
+      - backend
     restart: unless-stopped
     privileged: true
 
