@@ -1,39 +1,30 @@
-# Stage 1: Build frontend
+# Stage 1 (frontend-builder):
 FROM node:20-alpine AS frontend-builder
 
-# Install dependencies
-WORKDIR /app/frontend
+WORKDIR /app
 
-# Copy package files first for better layer caching
+# Copy frontend package files
 COPY frontend/package.json frontend/package-lock.json* ./
 
 # Install dependencies
-RUN npm ci --only=production=false
+RUN npm ci
 
-# Copy source code
+# Copy frontend source code
 COPY frontend/ ./
 
-# Build production assets
+# Build frontend
 RUN npm run build
 
-# Stage 2: Production nginx
+# Stage 2 (nginx):
 FROM nginx:alpine
 
-# Install curl for health checks
-RUN apk add --no-cache curl
+# Copy built frontend to /usr/share/nginx/html
+COPY --from=frontend-builder /app/dist /usr/share/nginx/html
 
-# Copy nginx configuration
+# Copy nginx.conf to /etc/nginx/conf.d/default.conf
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copy built frontend assets
-COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
 
 # Expose port 80
 EXPOSE 80
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/health || exit 1
-
-# Start nginx
 CMD ["nginx", "-g", "daemon off;"]
