@@ -30,8 +30,6 @@ export interface ExecutionLog {
   content: Record<string, unknown>;
 }
 
-export type LogEntry = ExecutionLog;
-
 export interface ProjectResponse {
   projects: Project[];
   timestamp: string;
@@ -59,17 +57,25 @@ export interface HealthResponse {
   version: string;
 }
 
+export interface Config {
+  projects_path?: string;
+  logs_path?: string;
+  refresh_interval?: number;
+  timeout_minutes?: number;
+}
+
 export interface DashboardState {
   projects: Project[];
   cronjobs: CronJob[];
   agents: Agent[];
   logs: ExecutionLog[];
+  config: Config | null;
   loading: boolean;
   error: string | null;
   lastUpdated: Date | null;
 }
 
 export type DashboardAction =
-  | { type: 'FETCH_START' }
   | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
-  | { type: 'FETCH_ERROR'; error: string };
+  | { type: 'FETCH_ERROR'; error: string }
+  | { type: 'REFRESH' };

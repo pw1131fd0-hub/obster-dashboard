@@ -1,6 +1,21 @@
+# Frontend-only builder container
+# Produces production build in /app/dist for use in multi-stage Dockerfile
+
 FROM node:20-alpine
+
 WORKDIR /app
+
+# Copy dependency files first for better layer caching
 COPY frontend/package*.json ./
+
+# Install all dependencies (including devDependencies for build)
 RUN npm ci
+
+# Copy frontend source
 COPY frontend/ ./
+
+# Build production bundle
+# Output goes to /app/dist (as configured in vite.config.ts)
 RUN npm run build
+
+#留个空白行

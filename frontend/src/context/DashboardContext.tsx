@@ -1,5 +1,12 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
-import type { DashboardState, DashboardAction, ProjectResponse, CronJobResponse, AgentResponse, LogResponse } from '../types';
+import type {
+  DashboardState,
+  DashboardAction,
+  ProjectResponse,
+  CronJobResponse,
+  AgentResponse,
+  LogResponse,
+} from '../types';
 
 interface DashboardContextType {
   state: DashboardState;
@@ -12,6 +19,7 @@ const initialState: DashboardState = {
   cronjobs: [],
   agents: [],
   logs: [],
+  config: null,
   loading: false,
   error: null,
   lastUpdated: null,
@@ -19,17 +27,22 @@ const initialState: DashboardState = {
 
 function dashboardReducer(state: DashboardState, action: DashboardAction): DashboardState {
   switch (action.type) {
-    case 'FETCH_START':
-      return { ...state, loading: true, error: null };
     case 'FETCH_SUCCESS':
       return {
         ...state,
-        ...action.payload,
+        projects: action.payload.projects ?? state.projects,
+        cronjobs: action.payload.cronjobs ?? state.cronjobs,
+        agents: action.payload.agents ?? state.agents,
+        logs: action.payload.logs ?? state.logs,
+        config: action.payload.config ?? state.config,
         loading: false,
         lastUpdated: new Date(),
+        error: null,
       };
     case 'FETCH_ERROR':
       return { ...state, loading: false, error: action.error };
+    case 'REFRESH':
+      return { ...state, loading: true, error: null };
     default:
       return state;
   }
@@ -44,7 +57,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
   const fetchData = useCallback(async (): Promise<void> => {
-    dispatch({ type: 'FETCH_START' });
+    dispatch({ type: 'REFRESH' });
     try {
       const [projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/projects`),
@@ -57,7 +70,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         throw new Error('Failed to fetch data from API');
       }
 
-      const [projectsData, cronjobsData, agentsData, logsData]: [ProjectResponse, CronJobResponse, AgentResponse, LogResponse] = await Promise.all([
+      const [projectsData, cronjobsData, agentsData, logsData]: [
+        ProjectResponse,
+        CronJobResponse,
+        AgentResponse,
+        LogResponse,
+      ] = await Promise.all([
         projectsRes.json() as Promise<ProjectResponse>,
         cronjobsRes.json() as Promise<CronJobResponse>,
         agentsRes.json() as Promise<AgentResponse>,
@@ -81,6 +99,10 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refresh = useCallback(async (): Promise<void> => {
+    await fetchData();
+  }, [fetchData]);
+
   useEffect(() => {
     void fetchData();
     const interval = setInterval(() => {
@@ -90,7 +112,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   return (
-    <DashboardContext.Provider value={{ state, fetchData, refresh: fetchData }}>
+    <DashboardContext.Provider value={{ state, fetchData, refresh }}>
       {children}
     </DashboardContext.Provider>
   );
