@@ -16,12 +16,12 @@ describe('ProjectStatusPanel', () => {
 
   it('renders the panel heading', () => {
     renderWithProvider(<ProjectStatusPanel />);
-    expect(screen.getByText('Project Status')).toBeInTheDocument();
+    expect(screen.getByText('開發任務狀態')).toBeInTheDocument();
   });
 
   it('shows empty-state message when there are no projects', () => {
     renderWithProvider(<ProjectStatusPanel />);
-    expect(screen.getByText('No projects found')).toBeInTheDocument();
+    expect(screen.getByText('暂無專案資料')).toBeInTheDocument();
   });
 
   it('renders a project card with name and stage badge', async () => {
@@ -73,7 +73,7 @@ describe('ProjectStatusPanel', () => {
     renderWithProvider(<ProjectStatusPanel />);
 
     await waitFor(() => {
-      expect(screen.getByText('Quality Score:')).toBeInTheDocument();
+      expect(screen.getByText(/Quality/i)).toBeInTheDocument();
     });
   });
 
@@ -114,12 +114,12 @@ describe('AgentHealthPanel', () => {
 
   it('renders the panel heading', () => {
     renderWithProvider(<AgentHealthPanel />);
-    expect(screen.getByText('Agent Health')).toBeInTheDocument();
+    expect(screen.getByText('Agent 健康度')).toBeInTheDocument();
   });
 
   it('shows empty-state message when no agents are configured', () => {
     renderWithProvider(<AgentHealthPanel />);
-    expect(screen.getByText('No agents found')).toBeInTheDocument();
+    expect(screen.getByText('暂無 Agent 資料')).toBeInTheDocument();
   });
 
   it('renders a healthy agent card with correct status', async () => {
@@ -178,12 +178,12 @@ describe('CronJobPanel', () => {
 
   it('renders the panel heading', () => {
     renderWithProvider(<CronJobPanel />);
-    expect(screen.getByText('Cron Job Monitor')).toBeInTheDocument();
+    expect(screen.getByText('Cron Job 監控')).toBeInTheDocument();
   });
 
   it('shows empty-state message when no cronjobs are configured', () => {
     renderWithProvider(<CronJobPanel />);
-    expect(screen.getByText('No cron jobs found')).toBeInTheDocument();
+    expect(screen.getByText('暂無 Cron Job 資料')).toBeInTheDocument();
   });
 
   it('renders a cronjob card and shows collapsed logs toggle', async () => {
@@ -213,7 +213,7 @@ describe('CronJobPanel', () => {
     expect(screen.queryByText('Starting monitor...')).not.toBeInTheDocument();
 
     // Clicking the toggle shows the logs
-    const toggleBtn = screen.getByRole('button', { name: /Show logs/i });
+    const toggleBtn = screen.getByRole('button', { name: /顯示 Logs/i });
     fireEvent.click(toggleBtn);
     expect(screen.getByText('Starting monitor...')).toBeInTheDocument();
   });
@@ -252,12 +252,12 @@ describe('ExecutionLogPanel', () => {
 
   it('renders the panel heading', () => {
     renderWithProvider(<ExecutionLogPanel />);
-    expect(screen.getByText('Execution Logs')).toBeInTheDocument();
+    expect(screen.getByText('執行 Log')).toBeInTheDocument();
   });
 
   it('shows empty-state message when there are no logs', () => {
     renderWithProvider(<ExecutionLogPanel />);
-    expect(screen.getByText('No logs found')).toBeInTheDocument();
+    expect(screen.getByText('暂無 Log 資料')).toBeInTheDocument();
   });
 
   it('renders a log entry and expands its JSON on click', async () => {
@@ -286,7 +286,7 @@ describe('ExecutionLogPanel', () => {
     expect(screen.queryByText(/"status"/)).not.toBeInTheDocument();
 
     // Expand the card
-    fireEvent.click(screen.getByRole('button', { name: /Expand/i }));
+    fireEvent.click(screen.getByRole('button', { name: /▶ 展開/i }));
     await waitFor(() => {
       expect(screen.getByText(/"status"/)).toBeInTheDocument();
     });

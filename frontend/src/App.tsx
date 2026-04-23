@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { useDashboard } from './context/DashboardContext';
 import Header from './components/Header';
 import ErrorBanner from './components/ErrorBanner';

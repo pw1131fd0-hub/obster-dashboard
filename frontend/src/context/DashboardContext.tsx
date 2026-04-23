@@ -57,7 +57,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
 
   const fetchData = useCallback(async (): Promise<void> => {
-    dispatch({ type: 'REFRESH' });
+    dispatch({ type: 'FETCH_START' });
     try {
       const [projectsRes, cronjobsRes, agentsRes, logsRes] = await Promise.all([
         fetch(`${API_BASE_URL}/projects`),
