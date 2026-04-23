@@ -1,23 +1,38 @@
 version: '3.8'
+
 services:
   nginx:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: obster-nginx
     ports:
       - "80:80"
     volumes:
       - /var/run/dbus:/var/run/dbus:ro
       - /run/systemd:/run/systemd:ro
     environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - NODE_ENV=production
+    env_file:
+      - .env
     restart: unless-stopped
-    privileged: true
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - obster-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    container_name: obster-backend
     ports:
       - "8000:8000"
     volumes:
@@ -30,5 +45,19 @@ services:
       - LOGS_PATH=/home/crawd_user/.openclaw/workspace/logs/executions
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TIMEOUT_MINUTES=30
+    env_file:
+      - .env
     restart: unless-stopped
     privileged: true
+    networks:
+      - obster-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  obster-network:
+    driver: bridge

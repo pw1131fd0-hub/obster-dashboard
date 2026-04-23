@@ -6,8 +6,11 @@ function ExecutionLogPanel() {
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
   return (
-    <section className="bg-secondary rounded-xl p-6">
-      <h2 className="text-lg font-semibold mb-4">📜 執行 Log</h2>
+    <section className="panel">
+      <h2 className="panel-title flex items-center gap-2">
+        <span>📜</span>
+        <span>執行 Log</span>
+      </h2>
       {state.logs.length === 0 ? (
         <p className="text-text-muted">暂無 Log 資料</p>
       ) : (
@@ -21,14 +24,14 @@ function ExecutionLogPanel() {
                 </div>
                 <button
                   onClick={() => setExpandedLog(expandedLog === log.filename ? null : log.filename)}
-                  className="text-sm text-accent hover:underline"
+                  className="text-sm text-accent hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded px-1"
                 >
-                  {expandedLog === log.filename ? 'Collapse' : 'Expand'}
+                  {expandedLog === log.filename ? '▼ 隱藏' : '▶ 展開'}
                 </button>
               </div>
               {expandedLog === log.filename && (
-                <div className="mt-3 bg-primary rounded p-3 font-mono text-xs overflow-x-auto">
-                  <pre className="whitespace-pre-wrap">
+                <div className="mt-3 bg-primary rounded p-3 font-mono text-xs overflow-x-auto max-h-80">
+                  <pre className="whitespace-pre-wrap break-all">
                     {JSON.stringify(log.content, null, 2)}
                   </pre>
                 </div>

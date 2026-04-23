@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useDashboard } from './context/DashboardContext';
 import ProjectStatusPanel from './components/ProjectStatusPanel';
 import CronJobPanel from './components/CronJobPanel';
@@ -7,10 +7,6 @@ import ExecutionLogPanel from './components/ExecutionLogPanel';
 
 function App() {
   const { state, fetchData } = useDashboard();
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
 
   const handleRefresh = useCallback(() => {
     void fetchData();
@@ -26,29 +22,33 @@ function App() {
       <header className="bg-secondary border-b border-slate-700 px-6 py-4">
         <div className="container mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold">🦞 OpenClaw Dashboard</h1>
+            <h1 className="text-xl font-bold flex items-center gap-2">
+              <span>🦞</span>
+              <span>OpenClaw Dashboard</span>
+            </h1>
             <p className="text-sm text-text-muted">小龍蝦系統監控儀表板 | VPS: srv1318420</p>
           </div>
           <div className="flex items-center gap-6">
-            <span className="text-sm text-text-muted">
-              每 30 秒自動刷新
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
+              <span className="text-sm text-text-muted">每 30 秒自動刷新</span>
+            </div>
             <span className="text-sm text-text-muted">
               Last: {formatLastUpdated(state.lastUpdated)}
             </span>
             <button
               onClick={handleRefresh}
               disabled={state.loading}
-              className="px-4 py-2 bg-accent hover:bg-blue-600 disabled:bg-slate-600 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+              className="btn-primary"
             >
-              重新整理
+              {state.loading ? '刷新中...' : '重新整理'}
             </button>
           </div>
         </div>
       </header>
 
       {state.error && (
-        <div role="alert" className="bg-error/20 border border-error text-error px-6 py-3">
+        <div role="alert" className="bg-error/20 border border-error text-error px-6 py-3 mx-4 mt-4 rounded-lg">
           <strong>Error:</strong> {state.error}
           <button
             onClick={handleRefresh}

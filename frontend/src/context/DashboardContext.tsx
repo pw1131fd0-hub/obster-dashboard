@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
-import type { DashboardState, DashboardAction, Project, CronJob, Agent, ExecutionLog } from '../types';
+import type { DashboardState, DashboardAction, ProjectResponse, CronJobResponse, AgentResponse, LogResponse } from '../types';
 
 interface DashboardContextType {
   state: DashboardState;
@@ -37,7 +37,8 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const REFRESH_INTERVAL = 30000;
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(dashboardReducer, initialState);
@@ -52,26 +53,30 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         fetch(`${API_BASE_URL}/logs`),
       ]);
 
-      const [projectsData, cronjobsData, agentsData, logsData] = await Promise.all([
-        projectsRes.json(),
-        cronjobsRes.json(),
-        agentsRes.json(),
-        logsRes.json(),
+      if (!projectsRes.ok || !cronjobsRes.ok || !agentsRes.ok || !logsRes.ok) {
+        throw new Error('Failed to fetch data from API');
+      }
+
+      const [projectsData, cronjobsData, agentsData, logsData]: [ProjectResponse, CronJobResponse, AgentResponse, LogResponse] = await Promise.all([
+        projectsRes.json() as Promise<ProjectResponse>,
+        cronjobsRes.json() as Promise<CronJobResponse>,
+        agentsRes.json() as Promise<AgentResponse>,
+        logsRes.json() as Promise<LogResponse>,
       ]);
 
       dispatch({
         type: 'FETCH_SUCCESS',
         payload: {
-          projects: (projectsData.projects || []) as Project[],
-          cronjobs: (cronjobsData.cronjobs || []) as CronJob[],
-          agents: (agentsData.agents || []) as Agent[],
-          logs: (logsData.logs || []) as ExecutionLog[],
+          projects: projectsData.projects || [],
+          cronjobs: cronjobsData.cronjobs || [],
+          agents: agentsData.agents || [],
+          logs: logsData.logs || [],
         },
       });
     } catch (err) {
       dispatch({
         type: 'FETCH_ERROR',
-        error: err instanceof Error ? err.message : 'Unknown error',
+        error: err instanceof Error ? err.message : 'Unknown error occurred',
       });
     }
   }, []);
@@ -80,7 +85,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     void fetchData();
     const interval = setInterval(() => {
       void fetchData();
-    }, 30000);
+    }, REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchData]);
 
