@@ -76,6 +76,6 @@ export interface DashboardState {
 }
 
 export type DashboardAction =
+  | { type: 'FETCH_START' }
   | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
-  | { type: 'FETCH_ERROR'; error: string }
-  | { type: 'REFRESH' };
+  | { type: 'FETCH_ERROR'; error: string };

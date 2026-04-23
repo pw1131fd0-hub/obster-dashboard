@@ -27,6 +27,8 @@ const initialState: DashboardState = {
 
 function dashboardReducer(state: DashboardState, action: DashboardAction): DashboardState {
   switch (action.type) {
+    case 'FETCH_START':
+      return { ...state, loading: true, error: null };
     case 'FETCH_SUCCESS':
       return {
         ...state,
@@ -41,8 +43,6 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
       };
     case 'FETCH_ERROR':
       return { ...state, loading: false, error: action.error };
-    case 'REFRESH':
-      return { ...state, loading: true, error: null };
     default:
       return state;
   }
