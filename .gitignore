@@ -1,8 +1,10 @@
 node_modules/
-dist/
 __pycache__/
 *.pyc
 .env
+dist/
+build/
+.pytest_cache/
+*.egg-info/
 .DS_Store
 *.log.ralph/
-.ralph/
