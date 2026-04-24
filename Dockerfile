@@ -1,18 +1,27 @@
-# Stage 1: frontend-builder
+# Stage 1: Build frontend with Vite
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
 
-COPY frontend/package.json frontend/
-RUN cd frontend && npm install
+# Copy frontend source
+COPY frontend/package.json frontend/package-lock.json* ./
 
-COPY frontend/ .
-RUN cd frontend && npm run build
+# Install dependencies
+RUN npm install
 
-# Stage 2: nginx
+# Copy frontend source code
+COPY frontend/ ./
+
+# Build production bundle
+RUN npm run build
+
+# Stage 2: Production nginx image
 FROM nginx:alpine
 
-COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
+# Copy built frontend assets
+COPY --from=frontend-builder /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
