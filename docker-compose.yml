@@ -12,7 +12,6 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
     restart: unless-stopped
-    privileged: true
 
   backend:
     build:

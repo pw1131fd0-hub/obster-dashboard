@@ -1,19 +1,26 @@
-# Optional: Standalone frontend build container
-# Use this to build the frontend without running nginx
+# Stage 1: Build React frontend
 FROM node:20-alpine AS frontend-builder
 
-WORKDIR /app
+WORKDIR /app/frontend
 
-# Copy frontend source
+# Copy package files
 COPY frontend/package.json frontend/package-lock.json* ./
 
 # Install dependencies
 RUN npm install
 
-# Copy frontend source code
+# Copy frontend source
 COPY frontend/ ./
 
 # Build production bundle
 RUN npm run build
 
-# Output location: /app/dist
+# Output stage - extract built files
+FROM alpine:latest AS output
+
+WORKDIR /app
+
+# Copy built assets
+COPY --from=frontend-builder /app/frontend/dist ./dist
+
+CMD ["ls", "-la", "/app/dist"]
