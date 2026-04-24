@@ -6,16 +6,12 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# Copy package files first for better layer caching
 COPY frontend/package*.json ./
 
-# Install dependencies
 RUN npm install
 
-# Copy source code
 COPY frontend/ ./
 
-# Build the frontend
 RUN npm run build
 
 # Create a simple serve stage to test the built assets
@@ -23,13 +19,10 @@ FROM node:20-alpine AS serve
 
 WORKDIR /app
 
-# Install serve to host static files
 RUN npm install -g serve
 
-# Copy the built frontend
 COPY --from=frontend-builder /app/frontend/dist ./dist
 
-# Expose port 3000 for dev testing
 EXPOSE 3000
 
 CMD ["serve", "-s", "dist", "-l", "3000"]
