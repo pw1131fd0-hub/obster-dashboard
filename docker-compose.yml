@@ -1,4 +1,9 @@
 version: '3.8'
+
+networks:
+  obster-network:
+    driver: bridge
+
 services:
   nginx:
     build:
@@ -14,6 +19,8 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    networks:
+      - obster-network
 
   backend:
     build:
@@ -33,3 +40,5 @@ services:
       - TIMEOUT_MINUTES=30
     restart: unless-stopped
     privileged: true
+    networks:
+      - obster-network
