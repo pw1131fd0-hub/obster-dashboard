@@ -94,7 +94,7 @@ class TestProjectsEndpoint:
         dev_status_content = {
             "stage": "dev",
             "iteration": 3,
-            "quality_score": 92.5,
+            "quality_score": 92,
             "blocking_errors": [],
             "updated_at": "2026-04-13T08:30:00.000Z"
         }
@@ -358,15 +358,14 @@ class TestConfigEndpoint:
 
     def test_config_returns_correct_values(self):
         """Config endpoint should return correct config values"""
-        with patch.dict("os.environ", {
-            "PROJECTS_PATH": "/test/projects",
-            "LOGS_PATH": "/test/logs",
-            "TELEGRAM_BOT_TOKEN": "test_token",
-            "TIMEOUT_MINUTES": "45"
-        }):
-            response = client.get("/api/config")
-            data = response.json()
-            assert data["projects_path"] == "/test/projects"
-            assert data["logs_path"] == "/test/logs"
-            assert data["telegram_bot_token"] == "test_token"
-            assert data["timeout_minutes"] == 45
+        import main
+        with patch.object(main, "PROJECTS_PATH", "/test/projects"):
+            with patch.object(main, "LOGS_PATH", "/test/logs"):
+                with patch.object(main, "TELEGRAM_BOT_TOKEN", "test_token"):
+                    with patch.object(main, "TIMEOUT_MINUTES", 45):
+                        response = client.get("/api/config")
+                        data = response.json()
+                        assert data["projects_path"] == "/test/projects"
+                        assert data["logs_path"] == "/test/logs"
+                        assert data["telegram_bot_token"] == "test_token"
+                        assert data["timeout_minutes"] == 45

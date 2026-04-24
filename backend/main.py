@@ -72,7 +72,7 @@ class Project(BaseModel):
     path: str
     stage: str
     iteration: int
-    quality_score: float
+    quality_score: int
     blocking_errors: list[str]
     updated_at: str
 
