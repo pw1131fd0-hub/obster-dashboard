@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import ProjectStatusPanel from '../../components/ProjectStatusPanel';
-import { setupFetchMock } from '../testUtils';
+import { setupFetchMock, renderWithProvider } from '../testUtils';
 
 describe('ProjectStatusPanel', () => {
   beforeEach(() => {
@@ -32,21 +32,21 @@ describe('ProjectStatusPanel', () => {
   });
 
   it('displays project name when projects exist', () => {
-    render(<ProjectStatusPanel />);
+    renderWithProvider(<ProjectStatusPanel />);
     expect(screen.getByText('obster-dashboard')).toBeInTheDocument();
     expect(screen.getByText('obster-worker')).toBeInTheDocument();
   });
 
   it('displays stage badges with correct colors', () => {
-    render(<ProjectStatusPanel />);
-    const devBadge = screen.getByText('DEV');
-    const prdBadge = screen.getByText('PRD');
+    renderWithProvider(<ProjectStatusPanel />);
+    const devBadge = screen.getByText('dev');
+    const prdBadge = screen.getByText('prd');
     expect(devBadge).toBeInTheDocument();
     expect(prdBadge).toBeInTheDocument();
   });
 
   it('shows quality score warning when below 85', () => {
-    render(<ProjectStatusPanel />);
+    renderWithProvider(<ProjectStatusPanel />);
     const lowScoreElements = screen.getAllByText(/^78$/);
     expect(lowScoreElements.length).toBeGreaterThan(0);
   });
@@ -55,7 +55,7 @@ describe('ProjectStatusPanel', () => {
     setupFetchMock({
       '/api/projects': { projects: [] },
     });
-    render(<ProjectStatusPanel />);
+    renderWithProvider(<ProjectStatusPanel />);
     expect(screen.getByText('暂無專案資料')).toBeInTheDocument();
   });
 });

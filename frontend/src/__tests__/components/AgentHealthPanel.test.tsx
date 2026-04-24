@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import AgentHealthPanel from '../../components/AgentHealthPanel';
-import { setupFetchMock } from '../testUtils';
+import { setupFetchMock, renderWithProvider } from '../testUtils';
 
 describe('AgentHealthPanel', () => {
   beforeEach(() => {
@@ -17,29 +17,29 @@ describe('AgentHealthPanel', () => {
   });
 
   it('displays agent names', () => {
-    render(<AgentHealthPanel />);
+    renderWithProvider(<AgentHealthPanel />);
     expect(screen.getByText('Argus')).toBeInTheDocument();
     expect(screen.getByText('Hephaestus')).toBeInTheDocument();
     expect(screen.getByText('Atlas')).toBeInTheDocument();
   });
 
   it('displays agent status indicators', () => {
-    render(<AgentHealthPanel />);
+    renderWithProvider(<AgentHealthPanel />);
     const statusElements = screen.getAllByText(/(healthy|unhealthy|unknown)/i);
     expect(statusElements.length).toBeGreaterThan(0);
   });
 
   it('displays minutes ago for each agent', () => {
-    render(<AgentHealthPanel />);
-    expect(screen.getByText('5 minutes ago')).toBeInTheDocument();
-    expect(screen.getByText('45 minutes ago')).toBeInTheDocument();
+    renderWithProvider(<AgentHealthPanel />);
+    expect(screen.getByText('5 min ago')).toBeInTheDocument();
+    expect(screen.getByText('45 min ago')).toBeInTheDocument();
   });
 
   it('displays no response data message when list is empty', () => {
     setupFetchMock({
       '/api/agents': { agents: [] },
     });
-    render(<AgentHealthPanel />);
-    expect(screen.getByText('No agents found')).toBeInTheDocument();
+    renderWithProvider(<AgentHealthPanel />);
+    expect(screen.getByText('暂無 Agent 資料')).toBeInTheDocument();
   });
 });

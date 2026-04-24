@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import ExecutionLogPanel from '../../components/ExecutionLogPanel';
-import { setupFetchMock } from '../testUtils';
+import { setupFetchMock, renderWithProvider } from '../testUtils';
 
 describe('ExecutionLogPanel', () => {
   beforeEach(() => {
@@ -27,19 +27,19 @@ describe('ExecutionLogPanel', () => {
   });
 
   it('displays log filenames', () => {
-    render(<ExecutionLogPanel />);
+    renderWithProvider(<ExecutionLogPanel />);
     expect(screen.getByText('exec-20260417-001.json')).toBeInTheDocument();
     expect(screen.getByText('exec-20260417-002.json')).toBeInTheDocument();
   });
 
   it('displays timestamps', () => {
-    render(<ExecutionLogPanel />);
+    renderWithProvider(<ExecutionLogPanel />);
     expect(screen.getByText(/2026\/4\/17/)).toBeInTheDocument();
   });
 
   it('displays expand/collapse buttons', () => {
-    render(<ExecutionLogPanel />);
-    const expandButtons = screen.getAllByText('Expand');
+    renderWithProvider(<ExecutionLogPanel />);
+    const expandButtons = screen.getAllByText('▶ 展開');
     expect(expandButtons.length).toBeGreaterThan(0);
   });
 
@@ -47,7 +47,7 @@ describe('ExecutionLogPanel', () => {
     setupFetchMock({
       '/api/logs': { logs: [], count: 0 },
     });
-    render(<ExecutionLogPanel />);
-    expect(screen.getByText('No logs found')).toBeInTheDocument();
+    renderWithProvider(<ExecutionLogPanel />);
+    expect(screen.getByText('暂無 Log 資料')).toBeInTheDocument();
   });
 });

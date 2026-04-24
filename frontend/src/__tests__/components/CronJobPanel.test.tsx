@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import CronJobPanel from '../../components/CronJobPanel';
-import { setupFetchMock } from '../testUtils';
+import { setupFetchMock, renderWithProvider } from '../testUtils';
 
 describe('CronJobPanel', () => {
   beforeEach(() => {
@@ -28,20 +28,20 @@ describe('CronJobPanel', () => {
   });
 
   it('displays cron job name', () => {
-    render(<CronJobPanel />);
+    renderWithProvider(<CronJobPanel />);
     expect(screen.getByText('obster-monitor')).toBeInTheDocument();
     expect(screen.getByText('obster-cron')).toBeInTheDocument();
   });
 
   it('displays exit code with correct color', () => {
-    render(<CronJobPanel />);
-    const exitCodeElements = screen.getAllByText(/Exit: \d+/);
+    renderWithProvider(<CronJobPanel />);
+    const exitCodeElements = screen.getAllByText(/Exit Code: \d+/);
     expect(exitCodeElements.length).toBeGreaterThan(0);
   });
 
   it('displays show logs button when logs exist', () => {
-    render(<CronJobPanel />);
-    const showLogsButton = screen.getByText('Show logs');
+    renderWithProvider(<CronJobPanel />);
+    const showLogsButton = screen.getByText('▶ 顯示 Logs');
     expect(showLogsButton).toBeInTheDocument();
   });
 
@@ -49,7 +49,7 @@ describe('CronJobPanel', () => {
     setupFetchMock({
       '/api/cronjobs': { cronjobs: [] },
     });
-    render(<CronJobPanel />);
-    expect(screen.getByText('No cron jobs found')).toBeInTheDocument();
+    renderWithProvider(<CronJobPanel />);
+    expect(screen.getByText('暂無 Cron Job 資料')).toBeInTheDocument();
   });
 });
