@@ -354,7 +354,9 @@ class TestConfigEndpoint:
         assert "projects_path" in data
         assert "logs_path" in data
         assert "timeout_minutes" in data
-        assert "telegram_bot_token" in data
+        assert "telegram_bot_token_set" in data
+        assert "agents" in data
+        assert "systemd_services" in data
 
     def test_config_returns_correct_values(self):
         """Config endpoint should return correct config values"""
@@ -367,5 +369,15 @@ class TestConfigEndpoint:
                         data = response.json()
                         assert data["projects_path"] == "/test/projects"
                         assert data["logs_path"] == "/test/logs"
-                        assert data["telegram_bot_token"] == "test_token"
+                        assert data["telegram_bot_token_set"] is True
                         assert data["timeout_minutes"] == 45
+                        assert data["agents"] == ["Argus", "Hephaestus", "Atlas", "Hestia", "Hermes", "Main"]
+                        assert data["systemd_services"] == ["obster-monitor", "obster-cron", "openclaw-scheduler"]
+
+    def test_config_telegram_token_not_set(self):
+        """Config endpoint should return telegram_bot_token_set=False when no token"""
+        import main
+        with patch.object(main, "TELEGRAM_BOT_TOKEN", ""):
+            response = client.get("/api/config")
+            data = response.json()
+            assert data["telegram_bot_token_set"] is False

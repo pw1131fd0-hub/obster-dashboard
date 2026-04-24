@@ -123,8 +123,10 @@ class LogResponse(BaseModel):
 class ConfigResponse(BaseModel):
     projects_path: str
     logs_path: str
-    telegram_bot_token: str
+    telegram_bot_token_set: bool
     timeout_minutes: int
+    agents: list[str]
+    systemd_services: list[str]
 
 
 # ============ Helper Functions ============
@@ -254,7 +256,7 @@ def get_projects():
                         path=str(subdir),
                         stage=data.get("stage", "unknown"),
                         iteration=data.get("iteration", 0),
-                        quality_score=data.get("quality_score", 0.0),
+                        quality_score=data.get("quality_score", 0),
                         blocking_errors=data.get("blocking_errors", []),
                         updated_at=data.get("updated_at", ""),
                     )
@@ -441,8 +443,10 @@ def get_config():
     return ConfigResponse(
         projects_path=PROJECTS_PATH,
         logs_path=LOGS_PATH,
-        telegram_bot_token=TELEGRAM_BOT_TOKEN,
+        telegram_bot_token_set=bool(TELEGRAM_BOT_TOKEN),
         timeout_minutes=TIMEOUT_MINUTES,
+        agents=AGENTS,
+        systemd_services=SYSTEMD_SERVICES,
     )
 
 
