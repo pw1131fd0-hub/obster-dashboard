@@ -55,7 +55,7 @@ function DashboardContent() {
   return (
     <>
       <Header />
-      {displayError && (
+      {displayError && state.error && (
         <ErrorBanner message={state.error} onRefresh={refresh} onDismiss={handleDismissError} />
       )}
       <div className="bg-secondary/50 px-4 py-2">
