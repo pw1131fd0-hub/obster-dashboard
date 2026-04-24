@@ -5,14 +5,13 @@ Covers all endpoints with mocks for external dependencies.
 
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
 
-# Import app from main module
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from main import app, AGENTS, SYSTEMD_SERVICES, VERSION
@@ -51,11 +50,11 @@ class TestProjectsEndpoint:
     """Tests for GET /api/projects"""
 
     @patch("main.Path")
-    def test_projects_returns_empty_when_path_not_exists(self, mock_path):
+    def test_projects_returns_empty_when_path_not_exists(self, mock_path_cls):
         """Projects endpoint should return empty list when path doesn't exist"""
         mock_path_instance = MagicMock()
         mock_path_instance.exists.return_value = False
-        mock_path.return_value = mock_path_instance
+        mock_path_cls.return_value = mock_path_instance
 
         response = client.get("/api/projects")
         assert response.status_code == 200
@@ -63,27 +62,35 @@ class TestProjectsEndpoint:
         assert data["projects"] == []
         assert "timestamp" in data
 
+    @patch("main.read_json_file")
     @patch("main.Path")
-    def test_projects_scans_subdirectories(self, mock_path):
-        """Projects endpoint should scan subdirectories for dev_status.json"""
-        # Create mock project directory structure
+    def test_projects_scans_subdirectories_for_dev_status(self, mock_path_cls, mock_read_json):
+        """Projects endpoint should scan subdirectories for docs/.dev_status.json"""
         mock_projects_path = MagicMock()
         mock_projects_path.exists.return_value = True
 
         mock_subdir1 = MagicMock()
         mock_subdir1.is_dir.return_value = True
         mock_subdir1.name = "project-alpha"
-        mock_subdir1.__truediv__ = lambda self, x: MagicMock() if x == "docs/.dev_status.json" else MagicMock()
 
         mock_subdir2 = MagicMock()
         mock_subdir2.is_dir.return_value = True
         mock_subdir2.name = "project-beta"
-        mock_subdir2.__truediv__ = lambda self, x: MagicMock() if x == "docs/.dev_status.json" else MagicMock()
+
+        def mock_truediv(self, other):
+            result = MagicMock()
+            if other == "docs/.dev_status.json":
+                result.exists.return_value = True
+            else:
+                result.exists.return_value = False
+            return result
+
+        type(mock_subdir1).__truediv__ = lambda self, x: mock_truediv(self, x)
+        type(mock_subdir2).__truediv__ = lambda self, x: mock_truediv(self, x)
 
         mock_projects_path.iterdir.return_value = [mock_subdir1, mock_subdir2]
-        mock_path.return_value = mock_projects_path
+        mock_path_cls.return_value = mock_projects_path
 
-        # Mock the docs/.dev_status.json file content
         dev_status_content = {
             "stage": "dev",
             "iteration": 3,
@@ -91,24 +98,25 @@ class TestProjectsEndpoint:
             "blocking_errors": [],
             "updated_at": "2026-04-13T08:30:00.000Z"
         }
+        mock_read_json.return_value = dev_status_content
 
-        with patch("main.read_json_file", return_value=dev_status_content):
-            response = client.get("/api/projects")
-            assert response.status_code == 200
-            data = response.json()
-            assert "projects" in data
-            assert isinstance(data["projects"], list)
+        response = client.get("/api/projects")
+        assert response.status_code == 200
+        data = response.json()
+        assert "projects" in data
+        assert isinstance(data["projects"], list)
+        assert len(data["projects"]) == 2
 
-    def test_projects_response_has_timestamp(self):
+    @patch("main.Path")
+    def test_projects_response_has_timestamp(self, mock_path_cls):
         """Projects response should include timestamp"""
-        with patch("main.Path") as mock_path:
-            mock_instance = MagicMock()
-            mock_instance.exists.return_value = False
-            mock_path.return_value = mock_instance
+        mock_instance = MagicMock()
+        mock_instance.exists.return_value = False
+        mock_path_cls.return_value = mock_instance
 
-            response = client.get("/api/projects")
-            data = response.json()
-            assert "timestamp" in data
+        response = client.get("/api/projects")
+        data = response.json()
+        assert "timestamp" in data
 
 
 class TestCronjobsEndpoint:
@@ -145,12 +153,13 @@ class TestCronjobsEndpoint:
         response = client.get("/api/cronjobs")
         data = response.json()
 
-        # Find the service in response
         for job in data["cronjobs"]:
             if job["name"] == "obster-monitor":
                 assert job["status"] == "failed"
                 assert job["exit_code"] == 1
                 break
+        else:
+            pytest.fail("obster-monitor not found in cronjobs response")
 
     @patch("main.parse_systemctl_show")
     @patch("main.get_journal_logs")
@@ -170,6 +179,8 @@ class TestCronjobsEndpoint:
             if job["name"] == "obster-monitor":
                 assert job["status"] == "inactive"
                 break
+        else:
+            pytest.fail("obster-monitor not found in cronjobs response")
 
 
 class TestAgentsEndpoint:
@@ -240,6 +251,98 @@ class TestAgentsEndpoint:
                 assert argus["minutes_ago"] >= 30
 
 
+class TestLogsEndpoint:
+    """Tests for GET /api/logs"""
+
+    @patch("main.Path")
+    def test_logs_returns_empty_when_path_not_exists(self, mock_path_cls):
+        """Logs endpoint should return empty list when path doesn't exist"""
+        mock_instance = MagicMock()
+        mock_instance.exists.return_value = False
+        mock_path_cls.return_value = mock_instance
+
+        response = client.get("/api/logs")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["logs"] == []
+        assert data["count"] == 0
+
+    @patch("main.read_json_file")
+    @patch("main.Path")
+    def test_logs_reads_json_files(self, mock_path_cls, mock_read_json):
+        """Logs endpoint should read JSON files from LOGS_PATH"""
+        mock_logs_path = MagicMock()
+        mock_logs_path.exists.return_value = True
+
+        mock_file = MagicMock()
+        mock_file.name = "exec-001.json"
+        mock_file.stat.return_value.st_mtime = 1713432000
+
+        mock_logs_path.glob.return_value = [mock_file]
+        mock_path_cls.return_value = mock_logs_path
+
+        log_content = {
+            "execution_id": "exec-001",
+            "status": "success",
+            "completed_at": "2026-04-18T10:00:00.000Z"
+        }
+        mock_read_json.return_value = log_content
+
+        response = client.get("/api/logs")
+        assert response.status_code == 200
+        data = response.json()
+        assert "logs" in data
+        assert data["count"] >= 0
+
+    @patch("main.read_json_file")
+    @patch("main.Path")
+    def test_logs_respects_limit_parameter(self, mock_path_cls, mock_read_json):
+        """Logs endpoint should respect limit parameter"""
+        mock_logs_path = MagicMock()
+        mock_logs_path.exists.return_value = True
+
+        mock_files = []
+        for i in range(25):
+            mock_file = MagicMock()
+            mock_file.name = f"exec-{i:03d}.json"
+            mock_file.stat.return_value.st_mtime = 1713432000 - i
+            mock_files.append(mock_file)
+
+        mock_logs_path.glob.return_value = mock_files
+        mock_path_cls.return_value = mock_logs_path
+
+        mock_read_json.return_value = {"status": "success"}
+
+        response = client.get("/api/logs?limit=10")
+        data = response.json()
+        assert len(data["logs"]) == 10
+
+    @patch("main.read_json_file")
+    @patch("main.Path")
+    def test_logs_sorted_by_mtime_descending(self, mock_path_cls, mock_read_json):
+        """Logs should be sorted by modification time descending"""
+        mock_logs_path = MagicMock()
+        mock_logs_path.exists.return_value = True
+
+        mock_files = []
+        for name, mtime in [("oldest.json", 1000), ("middle.json", 2000), ("newest.json", 3000)]:
+            mock_file = MagicMock()
+            mock_file.name = name
+            mock_file.stat.return_value.st_mtime = mtime
+            mock_files.append(mock_file)
+
+        mock_logs_path.glob.return_value = mock_files
+        mock_path_cls.return_value = mock_logs_path
+
+        mock_read_json.return_value = {"status": "success"}
+
+        response = client.get("/api/logs")
+        data = response.json()
+
+        filenames = [log["filename"] for log in data["logs"]]
+        assert filenames == ["newest.json", "middle.json", "oldest.json"]
+
+
 class TestConfigEndpoint:
     """Tests for GET /api/config"""
 
@@ -251,102 +354,19 @@ class TestConfigEndpoint:
         assert "projects_path" in data
         assert "logs_path" in data
         assert "timeout_minutes" in data
-        assert "agents" in data
-        assert "services" in data
+        assert "telegram_bot_token" in data
 
-    def test_config_agents_list_matches_expected(self):
-        """Config endpoint should return correct agents list"""
-        response = client.get("/api/config")
-        data = response.json()
-        assert data["agents"] == AGENTS
-        assert len(data["agents"]) == 6
-
-
-class TestLogsEndpoint:
-    """Tests for GET /api/logs"""
-
-    def test_logs_returns_empty_when_path_not_exists(self):
-        """Logs endpoint should return empty list when path doesn't exist"""
-        with patch("main.Path") as mock_path:
-            mock_instance = MagicMock()
-            mock_instance.exists.return_value = False
-            mock_path.return_value = mock_instance
-
-            response = client.get("/api/logs")
-            assert response.status_code == 200
+    def test_config_returns_correct_values(self):
+        """Config endpoint should return correct config values"""
+        with patch.dict("os.environ", {
+            "PROJECTS_PATH": "/test/projects",
+            "LOGS_PATH": "/test/logs",
+            "TELEGRAM_BOT_TOKEN": "test_token",
+            "TIMEOUT_MINUTES": "45"
+        }):
+            response = client.get("/api/config")
             data = response.json()
-            assert data["logs"] == []
-            assert data["count"] == 0
-
-    @patch("main.Path")
-    def test_logs_reads_json_files(self, mock_path):
-        """Logs endpoint should read JSON files from LOGS_PATH"""
-        mock_logs_path = MagicMock()
-        mock_logs_path.exists.return_value = True
-
-        mock_file = MagicMock()
-        mock_file.name = "exec-001.json"
-        mock_file.stat.return_value.st_mtime = 1713432000
-
-        mock_logs_path.glob.return_value = [mock_file]
-        mock_path.return_value = mock_logs_path
-
-        log_content = {
-            "execution_id": "exec-001",
-            "status": "success",
-            "completed_at": "2026-04-18T10:00:00.000Z"
-        }
-
-        with patch("main.read_json_file", return_value=log_content):
-            response = client.get("/api/logs")
-            assert response.status_code == 200
-            data = response.json()
-            assert "logs" in data
-            assert data["count"] >= 0
-
-    @patch("main.Path")
-    def test_logs_respects_limit_parameter(self, mock_path):
-        """Logs endpoint should respect limit parameter"""
-        mock_logs_path = MagicMock()
-        mock_logs_path.exists.return_value = True
-
-        # Create mock files with proper stat() to support sorting
-        mock_files = []
-        for i in range(25):
-            mock_file = MagicMock()
-            mock_file.name = f"exec-{i:03d}.json"
-            mock_file.stat.return_value.st_mtime = 1713432000 - i
-            mock_files.append(mock_file)
-
-        mock_logs_path.glob.return_value = mock_files
-        mock_path.return_value = mock_logs_path
-
-        with patch("main.read_json_file", return_value={"status": "success"}):
-            response = client.get("/api/logs?limit=10")
-            data = response.json()
-            assert len(data["logs"]) == 10
-
-    @patch("main.Path")
-    def test_logs_sorted_by_mtime_descending(self, mock_path):
-        """Logs should be sorted by modification time descending"""
-        mock_logs_path = MagicMock()
-        mock_logs_path.exists.return_value = True
-
-        # Files with different modification times
-        mock_files = []
-        for name, mtime in [("oldest.json", 1000), ("middle.json", 2000), ("newest.json", 3000)]:
-            mock_file = MagicMock()
-            mock_file.name = name
-            mock_file.stat.return_value.st_mtime = mtime
-            mock_files.append(mock_file)
-
-        mock_logs_path.glob.return_value = mock_files
-        mock_path.return_value = mock_logs_path
-
-        with patch("main.read_json_file", return_value={"status": "success"}):
-            response = client.get("/api/logs")
-            data = response.json()
-
-            # Verify order - should be newest first
-            filenames = [log["filename"] for log in data["logs"]]
-            assert filenames == ["newest.json", "middle.json", "oldest.json"]
+            assert data["projects_path"] == "/test/projects"
+            assert data["logs_path"] == "/test/logs"
+            assert data["telegram_bot_token"] == "test_token"
+            assert data["timeout_minutes"] == 45

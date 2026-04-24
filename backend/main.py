@@ -123,9 +123,8 @@ class LogResponse(BaseModel):
 class ConfigResponse(BaseModel):
     projects_path: str
     logs_path: str
+    telegram_bot_token: str
     timeout_minutes: int
-    agents: list[str]
-    services: list[str]
 
 
 # ============ Helper Functions ============
@@ -442,9 +441,8 @@ def get_config():
     return ConfigResponse(
         projects_path=PROJECTS_PATH,
         logs_path=LOGS_PATH,
+        telegram_bot_token=TELEGRAM_BOT_TOKEN,
         timeout_minutes=TIMEOUT_MINUTES,
-        agents=AGENTS,
-        services=SYSTEMD_SERVICES,
     )
 
 
