@@ -1,9 +1,11 @@
 version: '3.8'
+
 services:
   nginx:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: obster-nginx
     ports:
       - "80:80"
     volumes:
@@ -12,11 +14,17 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - obster-network
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    container_name: obster-backend
     ports:
       - "8000:8000"
     volumes:
@@ -31,3 +39,15 @@ services:
       - TIMEOUT_MINUTES=30
     restart: unless-stopped
     privileged: true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - obster-network
+
+networks:
+  obster-network:
+    driver: bridge
