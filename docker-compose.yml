@@ -10,7 +10,7 @@ services:
       - /var/run/dbus:/var/run/dbus:ro
       - /run/systemd:/run/systemd:ro
     environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     restart: unless-stopped
 
   backend:
@@ -27,7 +27,7 @@ services:
     environment:
       - PROJECTS_PATH=/home/crawd_user/project
       - LOGS_PATH=/home/crawd_user/.openclaw/workspace/logs/executions
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - TIMEOUT_MINUTES=30
     restart: unless-stopped
     privileged: true
