@@ -1,17 +1,19 @@
 // Health response from /api/health
 export interface HealthResponse {
   status: string;
-  uptime: number;
+  uptime_seconds: number;
   version: string;
 }
 
 // Project status from /api/projects
 export interface Project {
   name: string;
+  path: string;
   stage: 'prd' | 'dev' | 'test' | 'security';
   iteration: number;
   quality_score: number;
   blocking_errors: string[];
+  updated_at: string;
 }
 
 export interface ProjectResponse {
@@ -46,12 +48,14 @@ export interface AgentResponse {
 // Log entry from /api/logs
 export interface LogEntry {
   filename: string;
+  path: string;
   timestamp: string;
   content: Record<string, unknown>;
 }
 
 export interface LogResponse {
   logs: LogEntry[];
+  count: number;
 }
 
 // Dashboard state
