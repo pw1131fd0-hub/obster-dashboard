@@ -1,5 +1,6 @@
 # Stage 1: Build frontend with Node.js
 FROM node:20-alpine AS frontend-builder
+
 WORKDIR /app
 
 # Copy package files first for dependency caching
