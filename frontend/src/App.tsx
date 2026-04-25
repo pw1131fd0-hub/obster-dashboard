@@ -79,7 +79,7 @@ function DashboardContent() {
 function App() {
   return (
     <DashboardProvider>
-      <div className="min-h-screen bg-primary text-main flex flex-col">
+      <div className="min-h-screen bg-primary text-text-main flex flex-col">
         <DashboardContent />
       </div>
     </DashboardProvider>

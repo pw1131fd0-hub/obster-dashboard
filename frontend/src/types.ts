@@ -21,9 +21,9 @@ export interface ProjectResponse {
 // CronJob from /api/cronjobs
 export interface CronJob {
   name: string;
-  active: boolean;
-  exit_code: number;
+  status: 'active' | 'inactive' | 'failed' | 'error';
   last_run: string | null;
+  exit_code: number | null;
   recent_logs: string[];
 }
 
@@ -34,9 +34,9 @@ export interface CronJobResponse {
 // Agent from /api/agents
 export interface Agent {
   name: string;
-  last_response_time: string | null;
+  status: 'healthy' | 'unhealthy' | 'unknown' | 'error';
+  last_response: string | null;
   minutes_ago: number | null;
-  healthy: boolean;
 }
 
 export interface AgentResponse {
