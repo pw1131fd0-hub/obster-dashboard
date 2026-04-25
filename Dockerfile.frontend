@@ -1,10 +1,10 @@
-# Optional frontend-only build using node:20-alpine
+# Frontend-only builder for separate build workflows
 FROM node:20-alpine
 
 WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm ci --legacy-peer-deps
 
 COPY frontend/ ./
 RUN npm run build
