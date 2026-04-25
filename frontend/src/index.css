@@ -34,7 +34,7 @@
   }
 
   .panel-title {
-    @apply text-lg font-semibold text-text-main mb-4 pb-2 border-b border-slate-700;
+    @apply text-lg font-semibold text-main mb-4 pb-2 border-b border-slate-700;
   }
 
   .status-dot {

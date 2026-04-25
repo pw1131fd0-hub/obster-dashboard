@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useDashboard } from './context/DashboardContext';
+import { DashboardProvider, useDashboard } from './context/DashboardContext';
 import Header from './components/Header';
 import ErrorBanner from './components/ErrorBanner';
 import Footer from './components/Footer';
@@ -28,7 +28,7 @@ function AutoRefreshIndicator() {
   return (
     <div className="flex items-center gap-2">
       <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
-      <span className="text-sm text-text-muted">
+      <span className="text-sm text-muted">
         Auto-refresh every {REFRESH_INTERVAL}s
         <span className="ml-2 font-mono text-accent">{countdown}s</span>
       </span>
@@ -78,9 +78,11 @@ function DashboardContent() {
 
 function App() {
   return (
-    <div className="min-h-screen bg-primary text-text-main flex flex-col">
-      <DashboardContent />
-    </div>
+    <DashboardProvider>
+      <div className="min-h-screen bg-primary text-main flex flex-col">
+        <DashboardContent />
+      </div>
+    </DashboardProvider>
   );
 }
 

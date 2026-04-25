@@ -12,7 +12,7 @@ function ExecutionLogPanel() {
         <span>Execution Logs</span>
       </h2>
       {state.logs.length === 0 ? (
-        <p className="text-text-muted">No logs available</p>
+        <p className="text-muted">No logs available</p>
       ) : (
         <div className="space-y-4">
           {state.logs.slice(0, 20).map((log) => (
@@ -20,7 +20,7 @@ function ExecutionLogPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium">{log.filename}</h3>
-                  <p className="text-sm text-text-muted">{log.timestamp}</p>
+                  <p className="text-sm text-muted">{log.timestamp}</p>
                 </div>
                 <button
                   onClick={() => setExpandedLog(expandedLog === log.filename ? null : log.filename)}
@@ -39,7 +39,7 @@ function ExecutionLogPanel() {
             </div>
           ))}
           {state.logs.length > 0 && (
-            <p className="text-sm text-text-muted">Total: {state.logs.length} logs</p>
+            <p className="text-sm text-muted">Total: {state.logs.length} logs</p>
           )}
         </div>
       )}

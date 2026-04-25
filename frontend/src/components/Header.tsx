@@ -21,10 +21,10 @@ function Header({ onRefresh }: HeaderProps) {
             <span>&#x1F99E;</span>
             <span>OpenClaw Dashboard</span>
           </h1>
-          <p className="text-sm text-text-muted">OpenClaw System Monitor | VPS: srv1318420</p>
+          <p className="text-sm text-muted">OpenClaw System Monitor | VPS: srv1318420</p>
         </div>
         <div className="flex items-center gap-6">
-          <span className="text-sm text-text-muted">
+          <span className="text-sm text-muted">
             Last: {formatLastUpdated(state.lastUpdated)}
           </span>
           <button

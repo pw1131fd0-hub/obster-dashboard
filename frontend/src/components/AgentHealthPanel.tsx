@@ -3,7 +3,7 @@ import { useDashboard } from '../context/DashboardContext';
 const statusDotColors: Record<string, string> = {
   healthy: 'bg-success',
   unhealthy: 'bg-error',
-  unknown: 'bg-text-muted',
+  unknown: 'bg-muted',
   error: 'bg-error',
 };
 
@@ -30,7 +30,7 @@ function AgentHealthPanel() {
         <span>Agent Health</span>
       </h2>
       {state.agents.length === 0 ? (
-        <p className="text-text-muted">No agents available</p>
+        <p className="text-muted">No agents available</p>
       ) : (
         <div className="grid grid-cols-2 gap-4">
           {state.agents.map((agent) => {
@@ -45,18 +45,18 @@ function AgentHealthPanel() {
                   <span className={`text-xs font-medium px-2 py-1 rounded ${
                     agentStatus === 'healthy' ? 'bg-success/20 text-success' :
                     agentStatus === 'unhealthy' ? 'bg-error/20 text-error' :
-                    'bg-text-muted/20 text-text-muted'
+                    'bg-muted/20 text-muted'
                   }`}>
                     {agentStatus}
                   </span>
                 </div>
                 {agent.last_response && (
-                  <p className="text-sm text-text-muted mt-2">
+                  <p className="text-sm text-muted mt-2">
                     Last: {agent.last_response}
                   </p>
                 )}
                 {agent.minutes_ago !== null && (
-                  <p className="text-sm text-text-muted">
+                  <p className="text-sm text-muted">
                     {agent.minutes_ago} min ago
                   </p>
                 )}

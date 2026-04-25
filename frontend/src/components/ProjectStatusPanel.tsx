@@ -17,7 +17,7 @@ function ProjectStatusPanel() {
         <span>Project Status</span>
       </h2>
       {state.projects.length === 0 ? (
-        <p className="text-text-muted">No projects available</p>
+        <p className="text-muted">No projects available</p>
       ) : (
         <div className="space-y-4">
           {state.projects.map((project) => (
@@ -30,11 +30,11 @@ function ProjectStatusPanel() {
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-text-muted">Iteration: </span>
+                  <span className="text-muted">Iteration: </span>
                   <span>#{project.iteration}</span>
                 </div>
                 <div>
-                  <span className="text-text-muted">Quality: </span>
+                  <span className="text-muted">Quality: </span>
                   <span className={project.quality_score < 85 ? 'text-error font-medium' : 'text-success'}>
                     {project.quality_score}
                     {project.quality_score < 85 && ' &#x26A0;'}
@@ -51,7 +51,7 @@ function ProjectStatusPanel() {
                   </ul>
                 </div>
               )}
-              <p className="text-xs text-text-muted mt-2">
+              <p className="text-xs text-muted mt-2">
                 Updated: {new Date(project.updated_at).toLocaleString()}
               </p>
             </div>

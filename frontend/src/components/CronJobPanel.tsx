@@ -20,7 +20,7 @@ function CronJobPanel() {
         <span>Cron Job Monitor</span>
       </h2>
       {state.cronjobs.length === 0 ? (
-        <p className="text-text-muted">No cron jobs available</p>
+        <p className="text-muted">No cron jobs available</p>
       ) : (
         <div className="space-y-4">
           {state.cronjobs.map((job) => (
@@ -32,7 +32,7 @@ function CronJobPanel() {
                 </span>
               </div>
               {job.last_run && (
-                <p className="text-sm text-text-muted mt-1">Last Run: {job.last_run}</p>
+                <p className="text-sm text-muted mt-1">Last Run: {job.last_run}</p>
               )}
               {job.exit_code !== null && (
                 <p className="text-sm mt-1">
@@ -50,10 +50,10 @@ function CronJobPanel() {
                   {expandedJob === job.name && (
                     <div className="mt-2 bg-primary rounded p-3 font-mono text-xs overflow-x-auto max-h-40">
                       {job.recent_logs.slice(0, 5).map((log, i) => (
-                        <div key={i} className="text-text-muted whitespace-pre-wrap break-all">{log}</div>
+                        <div key={i} className="text-muted whitespace-pre-wrap break-all">{log}</div>
                       ))}
                       {job.recent_logs.length > 5 && (
-                        <div className="text-text-muted mt-1">... and {job.recent_logs.length - 5} more lines</div>
+                        <div className="text-muted mt-1">... and {job.recent_logs.length - 5} more lines</div>
                       )}
                     </div>
                   )}
