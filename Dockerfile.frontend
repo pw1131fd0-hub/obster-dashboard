@@ -1,13 +1,12 @@
-# Frontend-only build stage for CI/testing
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app
+# Optional frontend-only build using node:20-alpine
+FROM node:20-alpine
+
+WORKDIR /app/frontend
 
 COPY frontend/package*.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm install
 
 COPY frontend/ ./
 RUN npm run build
 
-# Output location for artifacts
-FROM alpine:latest AS output
-COPY --from=frontend-builder /app/dist /dist
+# Output is in /app/frontend/dist
