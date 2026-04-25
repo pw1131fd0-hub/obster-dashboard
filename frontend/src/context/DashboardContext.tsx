@@ -10,7 +10,6 @@ import type {
 
 interface DashboardContextType {
   state: DashboardState;
-  fetchData: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -19,7 +18,6 @@ const initialState: DashboardState = {
   cronjobs: [],
   agents: [],
   logs: [],
-  config: null,
   loading: false,
   error: null,
   lastUpdated: null,
@@ -32,11 +30,7 @@ function dashboardReducer(state: DashboardState, action: DashboardAction): Dashb
     case 'FETCH_SUCCESS':
       return {
         ...state,
-        projects: action.payload.projects ?? state.projects,
-        cronjobs: action.payload.cronjobs ?? state.cronjobs,
-        agents: action.payload.agents ?? state.agents,
-        logs: action.payload.logs ?? state.logs,
-        config: action.payload.config ?? state.config,
+        ...action.payload,
         loading: false,
         lastUpdated: new Date(),
         error: null,
@@ -112,7 +106,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [fetchData]);
 
   return (
-    <DashboardContext.Provider value={{ state, fetchData, refresh }}>
+    <DashboardContext.Provider value={{ state, refresh }}>
       {children}
     </DashboardContext.Provider>
   );

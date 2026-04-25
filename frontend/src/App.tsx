@@ -29,7 +29,7 @@ function AutoRefreshIndicator() {
     <div className="flex items-center gap-2">
       <span className="w-2 h-2 bg-success rounded-full animate-pulse" />
       <span className="text-sm text-text-muted">
-        每 {REFRESH_INTERVAL} 秒自動刷新
+        Auto-refresh every {REFRESH_INTERVAL}s
         <span className="ml-2 font-mono text-accent">{countdown}s</span>
       </span>
     </div>
@@ -54,7 +54,7 @@ function DashboardContent() {
 
   return (
     <>
-      <Header />
+      <Header onRefresh={refresh} />
       {displayError && state.error && (
         <ErrorBanner message={state.error} onRefresh={refresh} onDismiss={handleDismissError} />
       )}
@@ -78,7 +78,7 @@ function DashboardContent() {
 
 function App() {
   return (
-    <div className="min-h-screen bg-primary text-text flex flex-col">
+    <div className="min-h-screen bg-primary text-text-main flex flex-col">
       <DashboardContent />
     </div>
   );

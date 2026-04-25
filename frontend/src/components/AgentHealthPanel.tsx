@@ -26,11 +26,11 @@ function AgentHealthPanel() {
   return (
     <section className="panel">
       <h2 className="panel-title flex items-center gap-2">
-        <span>🤖</span>
-        <span>Agent 健康度</span>
+        <span>&#x1F916;</span>
+        <span>Agent Health</span>
       </h2>
       {state.agents.length === 0 ? (
-        <p className="text-text-muted">暂無 Agent 資料</p>
+        <p className="text-text-muted">No agents available</p>
       ) : (
         <div className="grid grid-cols-2 gap-4">
           {state.agents.map((agent) => {

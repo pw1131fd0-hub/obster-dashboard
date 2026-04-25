@@ -30,6 +30,33 @@ export interface LogEntry {
   content: object;
 }
 
+export interface HealthResponse {
+  status: string;
+  uptime_seconds: number;
+  version: string;
+}
+
+export interface ProjectResponse {
+  projects: Project[];
+  timestamp: string;
+}
+
+export interface CronJobResponse {
+  cronjobs: CronJob[];
+  timestamp: string;
+}
+
+export interface AgentResponse {
+  agents: Agent[];
+  timestamp: string;
+}
+
+export interface LogResponse {
+  logs: LogEntry[];
+  count: number;
+  timestamp: string;
+}
+
 export interface DashboardState {
   projects: Project[];
   cronjobs: CronJob[];
@@ -37,10 +64,10 @@ export interface DashboardState {
   logs: LogEntry[];
   loading: boolean;
   error: string | null;
-  lastUpdated: string | null;
+  lastUpdated: Date | null;
 }
 
 export type DashboardAction =
   | { type: 'FETCH_START' }
   | { type: 'FETCH_SUCCESS'; payload: Partial<DashboardState> }
-  | { type: 'FETCH_ERROR'; payload: string };
+  | { type: 'FETCH_ERROR'; error: string };

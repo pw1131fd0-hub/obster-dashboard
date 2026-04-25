@@ -13,11 +13,11 @@ function ProjectStatusPanel() {
   return (
     <section className="panel">
       <h2 className="panel-title flex items-center gap-2">
-        <span>📋</span>
-        <span>開發任務狀態</span>
+        <span>&#x1F4CB;</span>
+        <span>Project Status</span>
       </h2>
       {state.projects.length === 0 ? (
-        <p className="text-text-muted">暂無專案資料</p>
+        <p className="text-text-muted">No projects available</p>
       ) : (
         <div className="space-y-4">
           {state.projects.map((project) => (
@@ -37,7 +37,7 @@ function ProjectStatusPanel() {
                   <span className="text-text-muted">Quality: </span>
                   <span className={project.quality_score < 85 ? 'text-error font-medium' : 'text-success'}>
                     {project.quality_score}
-                    {project.quality_score < 85 && ' ⚠️'}
+                    {project.quality_score < 85 && ' &#x26A0;'}
                   </span>
                 </div>
               </div>
