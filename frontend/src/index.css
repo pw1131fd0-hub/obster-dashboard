@@ -2,48 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: #475569 #1e293b;
-  }
-
-  *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  *::-webkit-scrollbar-track {
-    background: #1e293b;
-    border-radius: 4px;
-  }
-
-  *::-webkit-scrollbar-thumb {
-    background: #475569;
-    border-radius: 4px;
-  }
-
-  *::-webkit-scrollbar-thumb:hover {
-    background: #64748b;
-  }
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-@layer components {
-  .panel {
-    @apply bg-secondary rounded-lg p-4 border border-slate-700;
-  }
-
-  .panel-title {
-    @apply text-lg font-semibold text-main mb-4 pb-2 border-b border-slate-700;
-  }
-
-  .status-dot {
-    @apply w-3 h-3 rounded-full;
-  }
+::-webkit-scrollbar-track {
+  background: #1E293B;
 }
 
-@layer utilities {
-  .font-mono {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
-  }
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Focus visible styling */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+/* Monospace font for JSON */
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
