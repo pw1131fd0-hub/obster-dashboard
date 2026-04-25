@@ -286,7 +286,7 @@ describe('ExecutionLogPanel', () => {
     expect(screen.queryByText(/"status"/)).not.toBeInTheDocument();
 
     // Expand the card
-    fireEvent.click(screen.getByRole('button', { name: /▶ 展開/i }));
+    fireEvent.click(screen.getByRole('button', { name: /展開/i }));
     await waitFor(() => {
       expect(screen.getByText(/"status"/)).toBeInTheDocument();
     });

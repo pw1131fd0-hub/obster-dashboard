@@ -14,10 +14,10 @@ function ProjectStatusPanel() {
     <section className="panel">
       <h2 className="panel-title flex items-center gap-2">
         <span>&#x1F4CB;</span>
-        <span>Project Status</span>
+        <span>開發任務狀態</span>
       </h2>
       {state.projects.length === 0 ? (
-        <p className="text-muted">No projects available</p>
+        <p className="text-muted">暂無專案資料</p>
       ) : (
         <div className="space-y-4">
           {state.projects.map((project) => (

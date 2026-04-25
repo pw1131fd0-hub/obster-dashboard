@@ -17,10 +17,10 @@ function CronJobPanel() {
     <section className="panel">
       <h2 className="panel-title flex items-center gap-2">
         <span>&#x23F0;</span>
-        <span>Cron Job Monitor</span>
+        <span>Cron Job 監控</span>
       </h2>
       {state.cronjobs.length === 0 ? (
-        <p className="text-muted">No cron jobs available</p>
+        <p className="text-muted">暂無 Cron Job 資料</p>
       ) : (
         <div className="space-y-4">
           {state.cronjobs.map((job) => (
@@ -45,7 +45,7 @@ function CronJobPanel() {
                     onClick={() => setExpandedJob(expandedJob === job.name ? null : job.name)}
                     className="text-sm text-accent hover:underline focus:outline-none focus:ring-2 focus:ring-accent rounded px-1"
                   >
-                    {expandedJob === job.name ? '&#9660; Hide Logs' : '&#9654; Show Logs'}
+                    {expandedJob === job.name ? '&#9660; 隱藏 Logs' : '&#9654; 顯示 Logs'}
                   </button>
                   {expandedJob === job.name && (
                     <div className="mt-2 bg-primary rounded p-3 font-mono text-xs overflow-x-auto max-h-40">
