@@ -1,8 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <rect x="4" y="8" width="56" height="48" rx="4" stroke="#3B82F6" stroke-width="3"/>
-  <rect x="10" y="14" width="20" height="12" rx="2" fill="#3B82F6" opacity="0.5"/>
-  <rect x="34" y="14" width="20" height="12" rx="2" fill="#3B82F6" opacity="0.5"/>
-  <rect x="10" y="30" width="20" height="12" rx="2" fill="#22C55E" opacity="0.5"/>
-  <rect x="34" y="30" width="20" height="12" rx="2" fill="#F59E0B" opacity="0.5"/>
-  <circle cx="32" cy="6" r="3" fill="#EF4444"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFEA83"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.213 3.9-7.72 3.9-9.932 0L.848 37.938c-2.213-3.9-1.63-8.313 1.306-11.153l110.785-161.039c2.646-3.838 7.82-3.838 10.466 0l103.927 151.178c2.936 2.84 3.52 7.253 1.307 11.074z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.876.067L65.08 215.105c-2.213 3.9-7.72 3.9-9.932 0L.848 37.938c-2.213-3.9-1.63-8.313 1.306-11.153l110.785-161.039c2.646-3.838 7.82-3.838 10.466 0L185.876.067c2.936 2.84 3.52 7.253 1.307 11.074z"></path></svg>
