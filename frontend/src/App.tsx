@@ -37,7 +37,7 @@ function AutoRefreshIndicator() {
 }
 
 function DashboardContent() {
-  const { state, refresh } = useDashboard();
+  const { state, fetchData } = useDashboard();
   const [dismissedError, setDismissedError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,9 +54,9 @@ function DashboardContent() {
 
   return (
     <>
-      <Header onRefresh={refresh} />
+      <Header onRefresh={fetchData} />
       {displayError && state.error && (
-        <ErrorBanner message={state.error} onRefresh={refresh} onDismiss={handleDismissError} />
+        <ErrorBanner message={state.error} onRefresh={fetchData} onDismiss={handleDismissError} />
       )}
       <div className="bg-secondary/50 px-4 py-2">
         <div className="container mx-auto">

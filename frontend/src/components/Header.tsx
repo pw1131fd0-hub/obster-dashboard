@@ -5,8 +5,8 @@ interface HeaderProps {
 }
 
 function Header({ onRefresh }: HeaderProps) {
-  const { state, refresh } = useDashboard();
-  const handleRefresh = onRefresh || refresh;
+  const { state, fetchData } = useDashboard();
+  const handleRefresh = onRefresh || fetchData;
 
   const formatLastUpdated = (date: Date | null): string => {
     if (!date) return 'Never';
