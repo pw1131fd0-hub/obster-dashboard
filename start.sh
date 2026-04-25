@@ -5,6 +5,10 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Default environment variables
+PROJECTS_PATH="${PROJECTS_PATH:-/home/crawd_user/project}"
+LOGS_PATH="${LOGS_PATH:-/home/crawd_user/.openclaw/workspace/logs/executions}"
+
 usage() {
     echo "Usage: $0 [dev|docker|full]"
     echo "  dev   - Start local development servers (frontend + backend)"
@@ -12,6 +16,33 @@ usage() {
     echo "  full  - Install dependencies then start dev servers"
     echo ""
     echo "Default mode: dev"
+}
+
+# Check for required directories
+check_directories() {
+    local missing_dirs=0
+
+    if [ ! -d "$PROJECTS_PATH" ]; then
+        echo "WARNING: PROJECTS_PATH does not exist: $PROJECTS_PATH"
+        echo "  Project status panel will show no projects."
+        missing_dirs=1
+    fi
+
+    if [ ! -d "$LOGS_PATH" ]; then
+        echo "WARNING: LOGS_PATH does not exist: $LOGS_PATH"
+        echo "  Execution log panel will show no logs."
+        missing_dirs=1
+    fi
+
+    if [ $missing_dirs -eq 1 ]; then
+        echo ""
+        echo "Some directories are missing. Set environment variables to override:"
+        echo "  PROJECTS_PATH=$PROJECTS_PATH"
+        echo "  LOGS_PATH=$LOGS_PATH"
+        echo ""
+    fi
+
+    return 0
 }
 
 MODE="${1:-dev}"
@@ -22,6 +53,10 @@ case "$MODE" in
         echo "  Obster Dashboard - Development Mode"
         echo "=========================================="
         echo ""
+
+        # Check required directories before starting
+        check_directories
+
         echo "Starting services..."
         echo "  Frontend: http://localhost:5173"
         echo "  Backend:  http://localhost:8000"
